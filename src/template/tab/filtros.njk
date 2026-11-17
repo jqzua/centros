@@ -29,6 +29,16 @@
       >metros de una estación de metro, metro ligero o cercanías</label
     >
   </fieldset>
+  <fieldset id="flt_viaje">
+    <legend>Tiempo de viaje</legend>
+    <label for="viaje_max">Mostrar solo centros a menos de</label>
+    <input id="viaje_max" type="number" min="0" step="5" title="Deje vacío el campo para no filtrar" data-label="Tiempo de viaje máximo (minutos): " />
+    <label for="viaje_max">minutos desde tu punto de partida</label>
+    <p id="viaje_max_info" style="margin-bottom: 0;">
+      Primero calcula los tiempos en la pestaña <a href="#viaje" target="_self"><i class="fa fa-home"></i> Tiempo de viaje</a>.
+      Los centros sin tiempo calculado se ocultan al usar este filtro.
+    </p>
+  </fieldset>
   {% if concurso.jornadas.length > 1 %}
   <fieldset class="flt_property">
     <legend>Jornada</legend>

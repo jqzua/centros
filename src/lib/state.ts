@@ -19,6 +19,7 @@ export class State {
     public readonly ensenanza = new SelectString("#ensenanza", null, 'en');
     public readonly alumnosMin = new InputNumber("#alu_min", null, 'amin');
     public readonly alumnosMax = new InputNumber("#alu_max", null, 'amax');
+    public readonly viajeMax = new InputNumber("#viaje_max", null, 'tmax');
     public readonly nocturno = new InputBoolean("#nocturno", true, 'noc');
     public readonly dificultad = new InputBoolean("#dificultad", true, 'dif');
     public readonly excelencia = new InputBoolean("#excelencia", true, 'exc');
@@ -193,7 +194,8 @@ export class State {
             this.fpdual,
             this.ensenanza,
             this.alumnosMin,
-            this.alumnosMax
+            this.alumnosMax,
+            this.viajeMax
         ].forEach((i) => {
             const v = qr.get(i.qr);
             if(v!=null) return i.set(v);
@@ -266,7 +268,8 @@ export class State {
             this.fpdual,
             this.ensenanza,
             this.alumnosMin,
-            this.alumnosMax
+            this.alumnosMax,
+            this.viajeMax
         ].forEach((i) => {
             const v = i.get()
             if(v!=null) return qr.push(`${i.qr}=${v}`);
@@ -332,7 +335,8 @@ export class State {
             this.fpdual.node,
             this.ensenanza.node,
             this.alumnosMin.node,
-            this.alumnosMax.node
+            this.alumnosMax.node,
+            this.viajeMax.node
         ]
     }
     getInputsTransporte() {

@@ -296,3 +296,20 @@ p.popPeticiones button {
 #addPeticion select {
   margin-bottom: 4px;
 }
+
+/* Tiempo de viaje */
+.casa-icon {
+  font-size: 24px;
+  line-height: 28px;
+  text-align: center;
+  background: none;
+  border: none;
+  filter: drop-shadow(0 0 2px white);
+}
+small.viaje {
+  white-space: nowrap;
+  color: #234;
+}
+ul.viaje_res li {
+  margin-bottom: 4px;
+}

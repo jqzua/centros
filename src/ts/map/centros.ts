@@ -12,6 +12,28 @@ import {
   incluyePuestos,
 } from "../../lib/peticiones";
 import { getLocalidad } from "../../lib/dbconcurso";
+import { Viaje, MODOS, formatMinutos, formatKm } from "../../lib/viaje";
+import { initViaje } from "./viaje";
+
+const VIAJE = Viaje.get();
+let viajeUI: { refresh: () => void } | undefined;
+
+/** "25 min" para un centro, o null si no hay tiempo calculado */
+function viajeTxt(c: Centro, conKm = false) {
+  const t = VIAJE.getCentro(c.id);
+  if (t == null) return null;
+  const km = conKm && t.metros != null ? ` · ${formatKm(t.metros)}` : "";
+  return `${MODOS[VIAJE.modo].ico} ${formatMinutos(t.minutos)}${km}`;
+}
+
+/** Rango de tiempos de un grupo de centros, p.e. "🚗 20 min – 45 min" */
+function viajeRango(centros: Centro[]) {
+  const mins = centros.flatMap((c) => VIAJE.getCentro(c.id)?.minutos ?? []);
+  if (mins.length == 0) return null;
+  const mn = Math.min(...mins), mx = Math.max(...mins);
+  const r = mn == mx ? formatMinutos(mn) : `${formatMinutos(mn)} – ${formatMinutos(mx)}`;
+  return `${MODOS[VIAJE.modo].ico} ${r}`;
+}
 
 import {
   getVal,
@@ -161,6 +183,12 @@ class CentroManager {
       descartados = descartados.sort(cmp);
       hidden = hidden.sort(cmp);
       shown = shown.sort(cmp);
+    } else if (VIAJE.count() > 0) {
+      const t = (c: Centro) => VIAJE.getCentro(c.id)?.segundos ?? Infinity;
+      const cmp = (c1: Centro, c2: Centro) => t(c1) - t(c2);
+      descartados = descartados.sort(cmp);
+      hidden = hidden.sort(cmp);
+      shown = shown.sort(cmp);
     }
 
     return {
@@ -207,9 +235,12 @@ function get_icon(c: Centro) {
 }
 
 export function dwnConcurso() {
+  // Aquí y no en DOMContentLoaded: necesita que window.MAP ya exista
+  viajeUI = initViaje(() => CNT.all, () => updateCentros(false));
   DB.get_concurso_centros(id_concurso).then((centros) => {
     CNT.set(centros);
     updateCentros(true);
+    viajeUI?.refresh();
     return centros;
   });
   const st = State.getState();
@@ -272,6 +303,9 @@ function dwnTxtCentros(this: HTMLAnchorElement) {
   let date = dateToString(new Date());
   this.download = date + "_centros.txt";
   let txt = "Fecha: " + date + "\n";
+  if (VIAJE.origen != null && VIAJE.count() > 0) {
+    txt = txt + `Tiempos de viaje: ${MODOS[VIAJE.modo].txt.toLowerCase()} desde ${VIAJE.origen.txt}\n`;
+  }
   if (estadistica.distancias != null) {
     txt =
       txt +
@@ -293,7 +327,7 @@ function dwnTxtCentros(this: HTMLAnchorElement) {
       const opt = s.selectedOptions[0];
       filtro.push("* " +label+opt.textContent);
     });
-    [st.alumnosMin, st.alumnosMax].forEach(i => {
+    [st.alumnosMin, st.alumnosMax, st.viajeMax].forEach(i => {
       const v = i.get();
       if (v != null) filtro.push("* " + (i.node?.getAttribute("data-label")??"") + v);
     });
@@ -362,6 +396,11 @@ function dwnTxtCentros(this: HTMLAnchorElement) {
         txt = txt + ` (${dis})`;
       }
       datos.forEach(d=>{
+        if (d == "viaje") {
+          const t = VIAJE.getCentro(c.id);
+          if (t != null) txt = txt + `\n  ${MODOS[VIAJE.modo].txt}: ${formatMinutos(t.minutos)}${t.metros == null ? "" : " (" + formatKm(t.metros) + ")"}`;
+          return;
+        }
         let v = c.getAttribute(d as keyof Centro);
         if (Array.isArray(v) && v.length>0) v = v.join(" ");
         if (typeof v != "string" || v.length==0) return;
@@ -383,6 +422,10 @@ function getPopUp(c: Centro) {
     `Código: <b>${c.id}</b>`,
     `<a href="geo:${c.latitud},${c.longitud}" title="Coordenadas: ${c.latitud}, ${c.longitud}">${c.direccion}</a>`,
   ];
+  {
+    const v = viajeTxt(c, true);
+    if (v != null) body.push(`${v} desde tu punto de partida`);
+  }
   if (c.alumnos != null) {
     const a = c.alumnos;
     const det = c.alumnado.map(x => `${x.etapa} ${x.alumnado}`).join(", ");
@@ -559,6 +602,7 @@ function mk_filter() {
   const ensenanza = st.ensenanza.get();
   const aluMin = st.alumnosMin.get();
   const aluMax = st.alumnosMax.get();
+  const viajeMax = st.viajeMax.get();
   const isEnsenanzaOk = (c: Centro) => {
     switch (ensenanza) {
       case null: return true;
@@ -588,6 +632,10 @@ function mk_filter() {
     if (jornada != null && c.jornada!=jornada) return false;
     if (etapa != null && !c.hasEtapa(etapa)) return false;
     if (!isEnsenanzaOk(c)) return false;
+    if (viajeMax != null) {
+      const t = VIAJE.getCentro(c.id);
+      if (t == null || t.segundos > viajeMax * 60) return false;
+    }
     if (aluMin != null || aluMax != null) {
       const total = c.alumnos?.total;
       if (total == null) return false;
@@ -722,6 +770,8 @@ function list_centros(
       distance = ` <small${title}>(${distance})</small>`;
     }
     const icon = get_icon(c);
+    const v = viajeTxt(c);
+    if (v != null) distance = distance + ` <small class="viaje">${v}</small>`;
     lis.push(`
       <li><img src="${icon.url}" onclick="window.MAP.flyTo([${c.latitud}, ${c.longitud}], 15);"/><span>${c.id} ${c.abr_nombre}${distance}</span></li>
     `);
@@ -831,7 +881,9 @@ function renderPeticiones() {
       if (c == null) return "";
       return `<img class="fly" src="${get_icon(c).url}" data-fly="${c.latitud},${c.longitud}" title="Ver en el mapa"/>`;
     })();
-    const incluye = p.t == "c" ? "" : ` <small>(${info.centros.length} centro${info.centros.length == 1 ? "" : "s"})</small>`;
+    const rango = viajeRango(info.centros);
+    const incluye = (p.t == "c" ? "" : ` <small>(${info.centros.length} centro${info.centros.length == 1 ? "" : "s"})</small>`)
+      + (rango == null ? "" : ` <small class="viaje">${rango}</small>`);
     const codigo = info.codigo == null ? "" : `<code>${info.codigo}</code> `;
     return `
       <li draggable="true" data-i="${i}" class="pet_${p.t}${avisos.length ? " aviso" : ""}">
@@ -992,7 +1044,7 @@ function dwnCsvPeticiones(this: HTMLAnchorElement) {
     return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const rows: (string | number | null)[][] = [
-    ["Orden", "Tipo", "Código", "Nombre", "DAT", "Tipos de puesto", "Centros incluidos", "Avisos"],
+    ["Orden", "Tipo", "Código", "Nombre", "DAT", "Tipos de puesto", "Centros incluidos", "Tiempo de viaje (min)", "Avisos"],
   ];
   const datOrden: string[] = [];
   pets.forEach((p, i) => {
@@ -1011,6 +1063,12 @@ function dwnCsvPeticiones(this: HTMLAnchorElement) {
       dat,
       p.puestos.join(" "),
       info.centros.length,
+      (() => {
+        const mins = info.centros.flatMap((c) => VIAJE.getCentro(c.id)?.minutos ?? []);
+        if (mins.length == 0) return null;
+        const mn = Math.min(...mins), mx = Math.max(...mins);
+        return mn == mx ? mn : `${mn}-${mx}`;
+      })(),
       avisosPeticion(pets, i, info).join(" "),
     ]);
   });

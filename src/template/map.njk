@@ -20,6 +20,7 @@
           <li title="Información"><a href="#home" role="tab"><i class="fa fa-info-circle"></i></a></li>
           <li title="Filtros"><a href="#settings" role="tab"><i class="fa fa-gear"></i></a></li>
           <li title="Transporte"><a href="#transporte" role="tab"><i class="fa fa-subway"></i></a></li>
+          <li title="Tiempo de viaje desde casa"><a href="#viaje" role="tab"><i class="fa fa-home"></i></a></li>
           <li id="lkMessages" title="Mandar mails"><a href="#messages" role="tab"><i class="fa fa-envelope"></i></a></li>
           <li class="tulista" title="Tu lista"><a href="#lista" role="tab"><i class="fa fa-pencil-square-o"></i><span id="count">{{concurso.centros.length}}</span></a></li>
           <li title="Descarga tu lista"><a href="#dwn" role="tab"><i class="fa fa fa-cloud-download"></i></a></li>
@@ -41,6 +42,9 @@
         </div>
         <div class="sidebar-pane" id="transporte">
           {% include "tab/transporte.njk" %}
+        </div>
+        <div class="sidebar-pane" id="viaje">
+          {% include "tab/viaje.njk" %}
         </div>
         <div class="sidebar-pane" id="messages">
           {% include "tab/mail.njk" %}

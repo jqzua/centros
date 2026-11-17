@@ -1,0 +1,56 @@
+<h1 class="sidebar-header">
+  Tiempo de viaje<span class="sidebar-close"><i class="fa fa-caret-left"></i></span>
+</h1>
+<div class="content filter">
+  <p>
+    Calcula el tiempo estimado desde tu casa (o cualquier otro punto) hasta
+    cada centro. Después podrás verlo al pinchar en cada centro, en tus
+    listas y peticiones, y usarlo en <i class="fa fa-gear"></i> Filtros.
+  </p>
+  <fieldset>
+    <legend>1. Punto de partida</legend>
+    <form id="viaje_form" target="_self" onsubmit="return false;">
+      <label for="viaje_q">Dirección:</label>
+      <input id="viaje_q" type="text" placeholder="Calle, número y municipio" autocomplete="street-address" />
+      <button id="viaje_buscar" type="submit">Buscar</button>
+    </form>
+    <div id="viaje_resultados"></div>
+    <p>
+      O bien:
+      <button id="viaje_mapa" type="button" title="Pincha después en el mapa">Elegir en el mapa</button>
+      <button id="viaje_gps" type="button">Mi ubicación</button>
+    </p>
+    <p id="viaje_origen"></p>
+  </fieldset>
+  <fieldset>
+    <legend>2. Cómo vas</legend>
+    <select id="viaje_modo" style="width: 100%;">
+      <option value="car">🚗 En coche (sin tráfico)</option>
+      <option value="bike">🚲 En bicicleta</option>
+      <option value="foot">🚶 A pie</option>
+    </select>
+  </fieldset>
+  <fieldset>
+    <legend>3. Calcular</legend>
+    <button id="viaje_calcular" type="button">Calcular tiempos</button>
+    <button id="viaje_cancelar" type="button" hidden>Cancelar</button>
+    <button id="viaje_borrar" type="button">Borrar mis datos</button>
+    <br/>
+    <progress id="viaje_progreso" max="1" value="0" hidden style="width: 100%;"></progress>
+    <p id="viaje_estado" style="margin-bottom: 0;"></p>
+  </fieldset>
+  <p>
+    <small>
+      El cálculo se hace en segundo plano, puedes seguir usando el mapa
+      mientras tanto. Los tiempos son estimaciones de
+      <a href="https://routing.openstreetmap.de/">OSRM</a> sobre
+      <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>: en
+      coche no tienen en cuenta el tráfico y no hay datos de transporte
+      público. La dirección se envía a
+      <a href="https://nominatim.openstreetmap.org/">Nominatim</a> para
+      localizarla. Tu punto de partida y los tiempos <strong>solo se guardan en
+      este navegador</strong>: no se publican ni aparecen en los enlaces que
+      compartas.
+    </small>
+  </p>
+</div>
