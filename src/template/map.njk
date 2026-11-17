@@ -1,66 +1,55 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
-    <title>Concurso de traslados</title>
+    <title>{{ concurso.name }} · Concurso de traslados</title>
     {% include "head.njk" %}
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet"/>
   </head>
-  <body id="mapbody">
-    <header>
-      <p>Esta web apoya <a href="https://mareaverdemadrid.blogspot.com/">las huelgas y movilizaciones</a> en favor de la educación pública</p>
+  <body id="mapbody" class="flex h-screen flex-col overflow-hidden">
+    {% include "banner.njk" %}
+    <header class="z-[1001] flex h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3">
+      <a href=".." target="_self" class="btn btn-ghost btn-icon" title="Volver al listado de concursos">{{ icon("atras") }}</a>
+      <div class="min-w-0 flex-1 leading-tight">
+        <div class="truncate text-sm font-semibold text-slate-900">{{ concurso.txt }} <span class="font-normal text-slate-400">{{ concurso.tipo_convocatoria }}</span></div>
+        <div class="truncate text-xs text-slate-500">Cuerpo{% if ' ' in concurso.cuerpo %}s{% endif %} {{ concurso.cuerpo | yjoin }}</div>
+      </div>
+      <a href="%VITE_DONAR%" class="btn btn-sm hidden sm:inline-flex">{{ icon("corazon", "h-3.5 w-3.5 text-brand-600") }} Donar</a>
     </header>
-    <main>
+    <main class="relative flex-1">
     <div id="loading-overlay">
-        <div class="loading-message">Cargando...<br/><small>({{concurso.centros.length}} centros)</small></div>
+      <div class="loading-message">
+        <div class="spinner"></div>
+        <div class="font-medium">Cargando {{concurso.centros.length}} centros…</div>
+      </div>
     </div>
     <div id="sidebar" class="sidebar collapsed">
-      <!-- Nav tabs -->
       <div class="sidebar-tabs">
         <ul role="tablist">
-          <li title="Información"><a href="#home" role="tab"><i class="fa fa-info-circle"></i></a></li>
-          <li title="Filtros"><a href="#settings" role="tab"><i class="fa fa-gear"></i></a></li>
-          <li title="Transporte"><a href="#transporte" role="tab"><i class="fa fa-subway"></i></a></li>
-          <li title="Tiempo de viaje desde casa"><a href="#viaje" role="tab"><i class="fa fa-home"></i></a></li>
-          <li id="lkMessages" title="Mandar mails"><a href="#messages" role="tab"><i class="fa fa-envelope"></i></a></li>
-          <li class="tulista" title="Tu lista"><a href="#lista" role="tab"><i class="fa fa-pencil-square-o"></i><span id="count">{{concurso.centros.length}}</span></a></li>
-          <li title="Descarga tu lista"><a href="#dwn" role="tab"><i class="fa fa fa-cloud-download"></i></a></li>
-          <li title="Contacto, correciones y sugerencias"><a href="#contacto" role="tab"><i class="fa fa-question-circle"></i></a></li>
-          </ul>
-          <ul role="tablist">
-          <li title="Volver al listado de concursos"><a href=".." role="tab" target="_self"><i class="fa fa-arrow-left"></i></a></li>
-          <li title="GitHub"><a href="%VITE_GITHUB%" role="tab" target="_blank"><i class="fa fa-github"></i></a></li>
+          <li title="Información"><a href="#home" role="tab">{{ icon("info") }}</a></li>
+          <li title="Filtros"><a href="#settings" role="tab">{{ icon("filtros") }}</a></li>
+          <li title="Transporte"><a href="#transporte" role="tab">{{ icon("tren") }}</a></li>
+          <li title="Tiempo de viaje desde casa"><a href="#viaje" role="tab">{{ icon("casa") }}</a></li>
+          <li class="tulista" title="Tu lista y peticiones"><a href="#lista" role="tab">{{ icon("lista") }}<span id="count">{{concurso.centros.length}}</span></a></li>
+          <li id="lkMessages" title="Mandar mails"><a href="#messages" role="tab">{{ icon("mail") }}</a></li>
+          <li title="Descargas"><a href="#dwn" role="tab">{{ icon("descarga") }}</a></li>
+          <li title="Contacto, correcciones y sugerencias"><a href="#contacto" role="tab">{{ icon("ayuda") }}</a></li>
+        </ul>
+        <ul role="tablist">
+          <li title="Volver al listado de concursos"><a href=".." role="tab" target="_self">{{ icon("atras") }}</a></li>
+          <li title="GitHub"><a href="%VITE_GITHUB%" role="tab" target="_blank">{{ icon("github") }}</a></li>
         </ul>
       </div>
-
-      <!-- Content tabs -->
       <div class="sidebar-content">
-        <div class="sidebar-pane" id="home">
-          {% include "tab/info.njk" %}
-        </div>
-        <div class="sidebar-pane" id="settings">
-          {% include "tab/filtros.njk" %}
-        </div>
-        <div class="sidebar-pane" id="transporte">
-          {% include "tab/transporte.njk" %}
-        </div>
-        <div class="sidebar-pane" id="viaje">
-          {% include "tab/viaje.njk" %}
-        </div>
-        <div class="sidebar-pane" id="messages">
-          {% include "tab/mail.njk" %}
-        </div>
-        <div class="sidebar-pane" id="lista">
-          {% include "tab/listado.njk" %}
-        </div>
-        <div class="sidebar-pane" id="contacto">
-          {% include "tab/contacto.njk" %}
-        </div>
-        <div class="sidebar-pane" id="dwn">
-          {% include "tab/dwn.njk" %}
-        </div>
+        <div class="sidebar-pane" id="home">{% include "tab/info.njk" %}</div>
+        <div class="sidebar-pane" id="settings">{% include "tab/filtros.njk" %}</div>
+        <div class="sidebar-pane" id="transporte">{% include "tab/transporte.njk" %}</div>
+        <div class="sidebar-pane" id="viaje">{% include "tab/viaje.njk" %}</div>
+        <div class="sidebar-pane" id="lista">{% include "tab/listado.njk" %}</div>
+        <div class="sidebar-pane" id="messages">{% include "tab/mail.njk" %}</div>
+        <div class="sidebar-pane" id="dwn">{% include "tab/dwn.njk" %}</div>
+        <div class="sidebar-pane" id="contacto">{% include "tab/contacto.njk" %}</div>
       </div>
     </div>
-    <div id="map" class="sidebar-map" style="height: 100%"></div>
+    <div id="map" class="sidebar-map h-full"></div>
   </main>
     <script type="module" src="/src/ts/map/index.ts"></script>
   </body>

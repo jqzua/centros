@@ -1,48 +1,47 @@
-<h1 class="sidebar-header">
-  Tu lista
-  <span class="sidebar-close"><i class="fa fa-caret-left"></i></span>
-</h1>
+{% import "macros.njk" as m %}
+{{ m.header("Tu lista") }}
 <div class="content">
-  <p>
-    Para ordenar los centros por cercania a un punto geográfico haz click en el
-    lugar deseado sobre el mapa con el botón secundario, o con el principal
-    mientras pulsas la tecla <code>control</code>, o haz una pulsación larga si
-    estas desde un movil o tablet.
-  </p>
-  <h2>Tus peticiones</h2>
-  <p>
-    Orden de preferencia de tu solicitud (máximo {{ max_peticiones }}). Igual que
-    en la aplicación de la Comunidad de Madrid, cada petición puede ser un
-    <b>centro</b>, una <b>localidad</b> (o un <b>distrito</b> en Madrid capital) o una
-    <b>DAT</b>, y las dos últimas incluyen todos sus centros sin orden entre ellos.
-    Los centros se añaden marcándolos como seleccionados en el mapa. Reordena
-    arrastrando, con las flechas o escribiendo el número de orden.
+  <h2 id="h_peticiones">Tus peticiones</h2>
+  <p class="muted mb-3">
+    Orden de preferencia de tu solicitud (máximo {{ max_peticiones }}). Como en la
+    aplicación de la Comunidad de Madrid, cada petición puede ser un <b>centro</b>,
+    una <b>localidad</b> (o un <b>distrito</b> en Madrid capital) o una <b>DAT</b>; las
+    dos últimas incluyen todos sus centros sin orden entre ellos. Reordena
+    arrastrando, con las flechas o escribiendo el número.
   </p>
   <div id="peticiones"></div>
   <fieldset id="addPeticion">
     <legend>Añadir localidad, distrito o DAT</legend>
-    <label for="addLocalidad">Localidad o distrito:</label><br/>
-    <select id="addLocalidad" class="nofiltro" style="width: 100%;">
-      <option value="">Elige una localidad o distrito</option>
-      {% for d in concurso.dats %}
-      <optgroup label="DAT {{ d.txt }}">
-        {% for l in d.localidades %}
-        <option value="{{ l.localidad.id }}">{{ l.localidad.txt }} ({{ l.count }} centro{% if l.count != 1 %}s{% endif %})</option>
+    <label for="addLocalidad" class="muted">Localidad o distrito</label>
+    <div class="mb-3 mt-1 flex gap-2">
+      <select id="addLocalidad" class="nofiltro min-w-0 flex-1">
+        <option value="">Elige una localidad o distrito</option>
+        {% for d in concurso.dats %}
+        <optgroup label="DAT {{ d.txt }}">
+          {% for l in d.localidades %}
+          <option value="{{ l.localidad.id }}">{{ l.localidad.txt }} ({{ l.count }} centro{% if l.count != 1 %}s{% endif %})</option>
+          {% endfor %}
+        </optgroup>
         {% endfor %}
-      </optgroup>
-      {% endfor %}
-    </select>
-    <button id="btnAddLocalidad" type="button">Añadir</button>
-    <br/>
-    <label for="addDat">Dirección de Área Territorial:</label><br/>
-    <select id="addDat" class="nofiltro" style="width: 100%;">
-      <option value="">Elige una DAT</option>
-      {% for d in concurso.dats %}
-      <option value="{{ d.id }}">DAT {{ d.txt }} ({{ d.count }} centros)</option>
-      {% endfor %}
-    </select>
-    <button id="btnAddDat" type="button">Añadir</button>
+      </select>
+      <button id="btnAddLocalidad" type="button" class="btn btn-primary" title="Añadir">{{ icon("mas") }}</button>
+    </div>
+    <label for="addDat" class="muted">Dirección de Área Territorial</label>
+    <div class="mt-1 flex gap-2">
+      <select id="addDat" class="nofiltro min-w-0 flex-1">
+        <option value="">Elige una DAT</option>
+        {% for d in concurso.dats %}
+        <option value="{{ d.id }}">DAT {{ d.txt }} ({{ d.count }} centros)</option>
+        {% endfor %}
+      </select>
+      <button id="btnAddDat" type="button" class="btn btn-primary" title="Añadir">{{ icon("mas") }}</button>
+    </div>
   </fieldset>
+  <p class="muted mt-4">
+    Para ordenar las listas por cercanía a un punto, haz clic con el botón
+    derecho en el mapa (o clic con <code>Ctrl</code>, o una pulsación larga en
+    el móvil). Si has calculado el tiempo de viaje, se ordenan por tiempo.
+  </p>
   <h2>Centros visibles</h2>
   <div id="cShw"></div>
   <h2>Centros ocultos</h2>

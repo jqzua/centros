@@ -1,4 +1,3 @@
-import "./map.css";
 
 import { SBMap } from "../../mapsidebar/leaflet-sidebar";
 import { dwnConcurso } from './centros'

@@ -8,6 +8,7 @@ import {
   geocodificar,
   formatMinutos,
 } from "../../lib/viaje";
+import { icon } from "../../lib/icons";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
@@ -56,8 +57,8 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
   const renderOrigen = () => {
     const o = V.origen;
     txtOrigen.innerHTML = o == null
-      ? "Aún no has elegido el punto de partida."
-      : `🏠 <b>${esc(o.txt)}</b><br/><small>${o.lat.toFixed(5)}, ${o.lon.toFixed(5)} · arrastra la casa del mapa para ajustarlo</small>`;
+      ? `<span class="text-slate-500">Aún no has elegido el punto de partida.</span>`
+      : `<span class="flex items-start gap-2"><span class="casa-icon h-6 w-6 shrink-0">${icon("casa", "h-3.5 w-3.5")}</span><span><b>${esc(o.txt)}</b><br/><span class="muted">${o.lat.toFixed(5)}, ${o.lon.toFixed(5)} · arrastra la casa del mapa para ajustarlo</span></span></span>`;
   };
 
   const renderEstado = () => {
@@ -97,7 +98,7 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
       draggable: true,
       zIndexOffset: 1000,
       title: "Punto de partida (arrástralo para moverlo)",
-      icon: L.divIcon({ className: "casa-icon", html: "🏠", iconSize: [28, 28], iconAnchor: [14, 14] }),
+      icon: L.divIcon({ className: "casa-icon", html: icon("casa"), iconSize: [30, 30], iconAnchor: [15, 15] }),
     });
     m.on("dragend", () => {
       const ll = m.getLatLng();
@@ -123,15 +124,15 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
     e.preventDefault();
     const txt = q?.value.trim() ?? "";
     if (txt.length < 3 || resultados == null) return;
-    resultados.innerHTML = "<p>Buscando…</p>";
+    resultados.innerHTML = `<p class="muted flex items-center gap-2"><span class="spinner h-4 w-4 border-2"></span>Buscando…</p>`;
     try {
       const arr = await geocodificar(txt);
       if (arr.length == 0) {
-        resultados.innerHTML = "<p>No se ha encontrado esa dirección en la Comunidad de Madrid. Prueba a añadir el municipio o elige el punto en el mapa.</p>";
+        resultados.innerHTML = `<p class="note">No se ha encontrado esa dirección en la Comunidad de Madrid. Prueba a añadir el municipio o elige el punto en el mapa.</p>`;
         return;
       }
-      resultados.innerHTML = "<p>Elige el resultado correcto:</p><ul class='viaje_res'>" + arr.map((o, i) =>
-        `<li><a href="#" target="_self" data-i="${i}">${esc(o.txt)}</a></li>`).join("") + "</ul>";
+      resultados.innerHTML = `<p class="muted mb-1">Elige el resultado correcto:</p><ul class="space-y-1">` + arr.map((o, i) =>
+        `<li><a href="#" target="_self" data-i="${i}" class="flex items-start gap-2 rounded-lg border border-slate-200 p-2 text-slate-700 no-underline hover:border-brand-300 hover:bg-brand-50 hover:no-underline">${icon("pin", "mt-0.5 h-4 w-4 text-brand-600")}<span>${esc(o.txt)}</span></a></li>`).join("") + "</ul>";
       resultados.querySelectorAll("a[data-i]").forEach((a) =>
         a.addEventListener("click", (ev) => {
           ev.preventDefault();
@@ -142,7 +143,7 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
       );
     } catch (err) {
       console.error(err);
-      resultados.innerHTML = "<p>No se ha podido buscar la dirección. Inténtalo de nuevo en un momento o elige el punto en el mapa.</p>";
+      resultados.innerHTML = `<p class="note">No se ha podido buscar la dirección. Inténtalo de nuevo en un momento o elige el punto en el mapa.</p>`;
     }
   });
 
@@ -151,11 +152,11 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
     const cont = window.MAP.getContainer();
     cont.style.cursor = "crosshair";
     btnMapa.disabled = true;
-    btnMapa.textContent = "Pincha en el mapa…";
+    btnMapa.innerHTML = `${icon("pin", "h-3.5 w-3.5")} Pincha en el mapa…`;
     window.MAP.once("click", (e: L.LeafletMouseEvent) => {
       cont.style.cursor = "";
       btnMapa.disabled = false;
-      btnMapa.textContent = "Elegir en el mapa";
+      btnMapa.innerHTML = `${icon("pin", "h-3.5 w-3.5")} Elegir en el mapa`;
       setOrigen({ lat: e.latlng.lat, lon: e.latlng.lng, txt: "Punto marcado en el mapa" });
       abrirPestana("viaje");
     });

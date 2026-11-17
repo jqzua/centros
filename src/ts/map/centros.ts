@@ -14,6 +14,7 @@ import {
 import { getLocalidad } from "../../lib/dbconcurso";
 import { Viaje, MODOS, formatMinutos, formatKm } from "../../lib/viaje";
 import { initViaje } from "./viaje";
+import { icon, pinUrl, PIN_COLOR } from "../../lib/icons";
 
 const VIAJE = Viaje.get();
 let viajeUI: { refresh: () => void } | undefined;
@@ -203,6 +204,8 @@ class CentroManager {
 
 let CNT = new CentroManager();
 
+const PIN_CACHE = new Map<string, string>();
+
 function get_icon(c: Centro) {
   const color = (() => {
     if (c.dificultad) return "red";
@@ -216,17 +219,13 @@ function get_icon(c: Centro) {
     c.innovacion,
     c.excelencia,
   ].includes(true);
-  const url = (() => {
-    const marca = State.getState().getMarca(c.id);
-    if (marca == State.SELECCIONADO) {
-      if (color == "green")
-        return "https://maps.google.com/mapfiles/ms/micons/grn-pushpin.png";
-      return `https://maps.google.com/mapfiles/ms/micons/${color}-pushpin.png`;
-    }
-    if (especial)
-      return `https://maps.google.com/mapfiles/ms/micons/${color}-dot.png`;
-    return `https://maps.google.com/mapfiles/ms/micons/${color}.png`;
-  })();
+  const seleccionado = State.getState().getMarca(c.id) == State.SELECCIONADO;
+  const key = `${color}|${especial}|${seleccionado}`;
+  let url = PIN_CACHE.get(key);
+  if (url == null) {
+    url = pinUrl(color, especial, seleccionado);
+    PIN_CACHE.set(key, url);
+  }
   return {
     color: color,
     especial: especial,
@@ -418,117 +417,98 @@ function dwnTxtCentros(this: HTMLAnchorElement) {
 }
 
 function getPopUp(c: Centro) {
-  let body = [
-    `Código: <b>${c.id}</b>`,
-    `<a href="geo:${c.latitud},${c.longitud}" title="Coordenadas: ${c.latitud}, ${c.longitud}">${c.direccion}</a>`,
-  ];
+  const row = (ico: string, html: string) => `<div class="pop-row">${icon(ico)}<div class="min-w-0 flex-1">${html}</div></div>`;
+  const ficha = import.meta.env.VITE_FICHA + c.id;
+
+  // Cabecera
+  let html = `
+  <div class="pop-head">
+    <div class="flex flex-wrap items-center gap-1.5">
+      <span class="chip chip-brand" title="${c.tp.txt}">${c.tp.abr}</span>
+      <span class="ctr-code">${c.id}</span>
+    </div>
+    <h3><a href="${ficha}" title="Ver la ficha oficial del centro">${c.nombre}</a></h3>
+  </div>`;
+
+  // Datos
+  const datos: string[] = [];
+  datos.push(row("pin", `<a href="geo:${c.latitud},${c.longitud}" title="Coordenadas: ${c.latitud}, ${c.longitud}">${c.direccion}</a>`));
   {
-    const v = viajeTxt(c, true);
-    if (v != null) body.push(`${v} desde tu punto de partida`);
+    const t = VIAJE.getCentro(c.id);
+    if (t != null) {
+      const km = t.metros == null ? "" : ` · ${formatKm(t.metros)}`;
+      datos.push(row("reloj", `<b>${formatMinutos(t.minutos)}</b> ${MODOS[VIAJE.modo].txt.toLowerCase()}${km}`));
+    }
   }
   if (c.alumnos != null) {
     const a = c.alumnos;
-    const det = c.alumnado.map(x => `${x.etapa} ${x.alumnado}`).join(", ");
-    body.push(`🧑 <b>${a.total} alumnos</b> <small>(curso ${a.year}-${a.year+1}: ${det})</small>`);
+    const det = c.alumnado.map(x => `${x.etapa} ${x.alumnado}`).join(" · ");
+    datos.push(row("alumnos", `<b>${a.total} alumnos</b> <span class="muted">(${a.year}-${a.year+1})</span><div class="muted">${det}</div>`));
   }
-  let links = c.web.map(lk=>{
-    if (lk.match(/www\.madrid\.es/)) return `<a href="${lk}">madrid.es</a>`;
-    return `<a href="${lk}">Web</a>`;
+  html += `<div class="pop-sec">${datos.join("")}</div>`;
+
+  // Características
+  const chips: string[] = [];
+  const chip = (cls: string, ico: string | null, txt: string, title = "") =>
+    chips.push(`<span class="chip ${cls}"${title ? ` title="${title}"` : ""}>${ico ? icon(ico, "h-3 w-3") : ""}${txt}</span>`);
+  if (c.secundaria) chip("chip-indigo", "eso", "ESO/Bach.");
+  if (c.fp) chip("chip-violet", "fp", c.fpdual ? "FP · Dual" : "FP");
+  else if (c.fpdual) chip("chip-violet", "fp", "FP Dual");
+  if (c.dificultad) chip("chip-red", "dificultad", "Especial dificultad", "Centro de especial dificultad");
+  if (c.nocturno) chip("chip-blue", "nocturno", "Nocturno", "Turno nocturno");
+  if (c.excelencia) chip("chip-amber", "excelencia", "Excelencia");
+  if (c.innovacion) chip("chip-amber", "tecnologia", "Tecnológico");
+  c.idiomas.forEach((i) => {
+    const n = document.querySelector("#otros input[name=idioma][id=" + i + "]");
+    chip("chip-green", "idioma", i, n?.getAttribute("title")?.trim() ?? "");
   });
+  if (c.jornada.length) {
+    const o = document.querySelector("#jornada option[value='" + c.jornada + "']");
+    if (o != null) chip("", "reloj", o.textContent?.trim() ?? "");
+  }
+  const acc = ({ TA: ["chip-green", "Accesible"], PA: ["chip-amber", "Parcialmente accesible"], NA: ["chip-red", "No accesible"] } as Record<string, string[]>)[c.accesible ?? ""];
+  if (acc != null) {
+    chips.push(`<a class="chip ${acc[0]} no-underline" href="https://github.com/s-nt-s/centros/wiki/Accesibilidad" title="¡OJO! Función experimental, puede inducir a error">${icon("accesible", "h-3 w-3")}${acc[1]}</a>`);
+  }
+  if (chips.length) html += `<div class="pop-sec"><div class="chips">${chips.join("")}</div></div>`;
+
+  // Contacto
+  const links = c.web.map(lk => `<a class="btn btn-sm" href="${lk}">${icon("web", "h-3.5 w-3.5")} ${lk.match(/www\.madrid\.es/) ? "madrid.es" : "Web"}</a>`);
   if (c.emails.length) {
     const mailto = Mail.mail_tobcc(c.emails, MSG_MAIL.subject, MSG_MAIL.body);
-    links.push(`<a href='${mailto}' title="${c.emails.join(" ")}">Mail</a>`);
+    links.push(`<a class="btn btn-sm" href='${mailto}' title="${c.emails.join(" ")}">${icon("mail", "h-3.5 w-3.5")} Correo</a>`);
   }
   c.telefonos.forEach((t) => {
     if (t.length == 9) {
       if (t.startsWith("91")) t = t.replace(/(..)(...)(..)(..)/, "$1 $2 $3 $4");
       else t = t.replace(/(...)(...)(...)/, "$1 $2 $3");
     }
-    links.push(`<a href="tel:${t}" title="Teléfono: ${t}">${t}</a>`);
+    links.push(`<a class="btn btn-sm" href="tel:${t.replace(/ /g, "")}" title="Teléfono: ${t}">${icon("telefono", "h-3.5 w-3.5")} ${t}</a>`);
   });
-  body.push(links.join(" - "));
+  if (links.length) html += `<div class="pop-sec"><div class="pop-links">${links.join("")}</div></div>`;
 
-  const ficha = import.meta.env.VITE_FICHA + c.id;
-  let html = `
-  <h1><a href="${ficha}">${c.abr_nombre}</a></h1>
-  <p>${body.join("<br/>")}</p>
-  `;
-
-  body = [];
-  const accesible = {
-    "TA": "♿ Accesible",
-    "PA": "🤔 Parcialmente accesible",
-    "NA": "😞 No accesible",
-    '': null
-  }[c.accesible??''];
-  if (accesible != null) {
-    body.push(`<a title="¡OJO! Función experimental, puede inducir a error" class="acc_ico" href="https://github.com/s-nt-s/centros/wiki/Accesibilidad">${accesible}</a>`);
-  }
-  if (c.dificultad) body.push("<b title='Centro de especial dificultad'><span style='color: red;'>🌶</span> Especial dificultad</b>");
-  if (c.nocturno) body.push("<b title='Turno nocturno'>🌑 Nocturno</b>");
-  const tags = [];
-  if (c.excelencia) tags.push("<b>&#35;excelencia</b>");
-  if (c.innovacion) tags.push("<b>&#35;tecnológico</b>");
-  c.idiomas.forEach(function (i) {
-    const n = document.querySelector(
-      "#otros input[name=idioma][id=" + i + "]"
-    )!;
-    const t = n.getAttribute("title")!.trim();
-    tags.push(`<b class="tag_${i} flag" title="${t}">&#35;${i}</b>`);
-  });
-  if (c.jornada.length) {
-    const o =document.querySelector("#jornada option[value='"+c.jornada+"']");
-    if (o != null) tags.push(o.textContent?.trim())
-  }
-  if (c.secundaria) tags.push("ESO/Bach.");
-  if (c.fp) tags.push(c.fpdual ? "FP (con FP Dual)" : "FP");
-  else if (c.fpdual) tags.push("FP Dual");
-  if (tags.length) {
-    body.push("\n" + tags.join(", "));
-  }
-  if (body.length) {
-    html = html + `<p>${body.join("<br/>")}</p>`;
-  }
-  /*
-  html = html + "<p>Estación más cercana a ";
-  if (c.min_distance<1000) {
-    html = html + Math.round(c.min_distance) + " metros</p>"
-  } else {
-    let km = Math.round(c.min_distance / 100)/10;
-    km = km.toString().replace(".", ",");
-    html = html + km + " kms</p>"
-  }
-  */
-  html = html + popupPeticiones(c);
+  // Peticiones y marca
+  html += popupPeticiones(c);
   const marca = State.getState().getMarca(c.id);
-  let chk1 = "";
-  let chk2 = "";
-  let chk3 = "checked='checked'";
-  if (marca == State.SELECCIONADO) {
-    chk1 = chk3;
-    chk3 = "";
-  } else if (marca == State.DESCARTADO) {
-    chk2 = chk3;
-    chk3 = "";
-  }
-  html =
-    html +
-    `
-    <p>
-      <input value="${State.SELECCIONADO}" class="marcar" type="radio" id="sel${c.id}" ${chk1}/> <label for="sel${c.id}">Marcar como seleccionado</label><br/>
-      <input value="${State.DESCARTADO}" class="marcar" type="radio" id="des${c.id}" ${chk2}/> <label for="des${c.id}">Marcar como descartado</label><br/>
-      <input value="" class="marcar" type="radio" id="no${c.id}" ${chk3}/> <label for="no${c.id}">No marcar</label>
-    </p>
-  `;
-  html = html.trim();
+  const radio = (val: string, id: string, txt: string, ico: string, cls: string, checked: boolean) =>
+    `<label for="${id}${c.id}" class="${cls}"><input value="${val}" class="marcar" type="radio" name="marca${c.id}" id="${id}${c.id}"${checked ? " checked" : ""}/>${icon(ico, "h-3.5 w-3.5")}${txt}</label>`;
+  html += `
+  <div class="pop-sec">
+    <div class="seg" role="radiogroup" aria-label="Marcar centro">
+      ${radio(String(State.SELECCIONADO), "sel", "Seleccionar", "estrella", "sel", marca == State.SELECCIONADO)}
+      ${radio(String(State.DESCARTADO), "des", "Descartar", "ko", "", marca == State.DESCARTADO)}
+      ${radio("", "no", "Ninguna", "nada", "", marca != State.SELECCIONADO && marca != State.DESCARTADO)}
+    </div>
+  </div>`;
+
   const div = document.createElement("div");
-  div.innerHTML = html;
+  div.innerHTML = html.trim();
   div.querySelectorAll("button[data-add]").forEach((b) =>
     b.addEventListener("click", function (this: HTMLButtonElement) {
       const [t, id] = this.getAttribute("data-add")!.split(":");
       State.getState().addPeticion({t: t as Peticion["t"], id: id, puestos: ["01"]});
       this.disabled = true;
-      this.textContent = "✔ " + this.textContent;
+      this.insertAdjacentHTML("afterbegin", icon("ok", "h-3.5 w-3.5"));
     })
   );
   div.querySelectorAll("input[type=radio]").forEach((e) =>
@@ -559,7 +539,7 @@ function setCentroMarker(centro:Centro, refresh: boolean = false) {
       const options: L.CircleOptions = {
         radius: 5,
         fill: true,
-        fillColor: icon.color,
+        fillColor: PIN_COLOR[icon.color] ?? icon.color,
         fillOpacity: 0.8,
         color: "black",
         opacity: 1,
@@ -570,12 +550,15 @@ function setCentroMarker(centro:Centro, refresh: boolean = false) {
     const conf = {
       icon: L.icon({
         iconUrl: icon.url,
-        iconSize: [32, 32],
+        iconSize: [28, 36],
+        iconAnchor: [14, 35],
+        popupAnchor: [0, -32],
+        tooltipAnchor: [12, -20],
       }),
     };
     return L.marker(latlng, conf);
   })();
-  marker.bindPopup(() => getPopUp(centro));
+  marker.bindPopup(() => getPopUp(centro), { maxWidth: 320, minWidth: 300 });
   marker.bindTooltip(centro.tp.abr + " " + centro.nombre);
   window.MAP.addIdLayer(layer_id, marker);
 }
@@ -719,11 +702,11 @@ function updateList() {
   );
   document.querySelectorAll("#peticiones, #cShw, #cHdn, #cDsc").forEach(h=>{
     const count = h.id == "peticiones" ? State.getState().getPeticiones().length : h.querySelectorAll("li").length;
-    const h2 = h.previousElementSibling;
+    const h2 = h.id == "peticiones" ? document.getElementById("h_peticiones") : h.previousElementSibling;
     if (h2==null || h2.tagName!="H2") return;
     const small = h2.querySelector("small");
-    if (small!=null) small.textContent=`(${count})`;
-    else h2.insertAdjacentHTML("beforeend", ` <small>(${count})</small>`);
+    if (small!=null) small.textContent=`${count}`;
+    else h2.insertAdjacentHTML("beforeend", ` <small>${count}</small>`);
   })
   /*
   set_html("#cSel,#cShw,#cHdn,#cDsc").each(function () {
@@ -747,7 +730,7 @@ function list_centros(
   distancia: { [id: number]: number } | undefined
 ) {
   if (centros.length == 0) {
-    return "<p>" + msg + "</p>";
+    return `<p class="rounded-lg border border-dashed border-slate-200 p-3 text-center text-xs text-slate-500">${msg}</p>`;
   }
   const mails: Set<string> = new Set();
   let html = "<ul class='listCentros'>";
@@ -767,13 +750,13 @@ function list_centros(
       } else if (d <= 1) {
         distance = Math.round(d * 1000) + "m";
       }
-      distance = ` <small${title}>(${distance})</small>`;
+      distance = ` <small class="dist"${title}>${distance}</small>`;
     }
-    const icon = get_icon(c);
+    const ico = get_icon(c);
     const v = viajeTxt(c);
     if (v != null) distance = distance + ` <small class="viaje">${v}</small>`;
     lis.push(`
-      <li><img src="${icon.url}" onclick="window.MAP.flyTo([${c.latitud}, ${c.longitud}], 15);"/><span>${c.id} ${c.abr_nombre}${distance}</span></li>
+      <li><img alt="" title="Ver en el mapa" src="${ico.url}" onclick="window.MAP.flyTo([${c.latitud}, ${c.longitud}], 15);"/><span>${c.abr_nombre} <span class="ctr-code">${c.id}</span>${distance}</span></li>
     `);
   });
   html = html + lis.join("");
@@ -784,7 +767,7 @@ function list_centros(
     html =
       html +
       `
-    <p><a href="${mailto}">Pincha aquí para mandar un email a todos los centros de esta lista que tienen correo electrónico</a></p>
+    <p class="mt-2"><a class="btn btn-sm" href="${mailto}">${icon("mail", "h-3.5 w-3.5")} Escribir a los centros de esta lista</a></p>
     `;
   }
   return html;
@@ -864,7 +847,7 @@ function renderPeticiones() {
   const st = State.getState();
   const pets = st.getPeticiones();
   if (pets.length == 0) {
-    div.innerHTML = "<p>Aún no has añadido ninguna petición. Marca centros como seleccionados en el mapa o añade una localidad, distrito o DAT.</p>";
+    div.innerHTML = `<p class="rounded-xl border border-dashed border-slate-300 p-4 text-center text-xs text-slate-500">${icon("lista", "mx-auto mb-1 h-6 w-6 text-slate-300")}<br/>Aún no tienes peticiones. Selecciona centros en el mapa o añade abajo una localidad, distrito o DAT.</p>`;
     syncAddButtons();
     return;
   }
@@ -875,35 +858,37 @@ function renderPeticiones() {
       const chk = p.puestos.includes(k) ? " checked" : "";
       return `<label title="${v}"><input type="checkbox" data-puesto="${k}"${chk}/>${k}</label>`;
     }).join(" ");
-    const icon = (() => {
+    const fly = (() => {
       if (p.t != "c") return "";
       const c = CNT.find(Number(p.id));
       if (c == null) return "";
-      return `<img class="fly" src="${get_icon(c).url}" data-fly="${c.latitud},${c.longitud}" title="Ver en el mapa"/>`;
+      return `<img class="fly" alt="" src="${get_icon(c).url}" data-fly="${c.latitud},${c.longitud}" title="Ver en el mapa"/>`;
     })();
     const rango = viajeRango(info.centros);
-    const incluye = (p.t == "c" ? "" : ` <small>(${info.centros.length} centro${info.centros.length == 1 ? "" : "s"})</small>`)
+    const incluye = (p.t == "c" ? "" : ` <small class="chip">${info.centros.length} centro${info.centros.length == 1 ? "" : "s"}</small>`)
       + (rango == null ? "" : ` <small class="viaje">${rango}</small>`);
-    const codigo = info.codigo == null ? "" : `<code>${info.codigo}</code> `;
+    const codigo = info.codigo == null ? "" : `<span class="ctr-code">${info.codigo}</span> `;
+    const tipoCls = p.t == "c" ? "chip-brand" : p.t == "l" ? "chip-blue" : "chip-violet";
     return `
       <li draggable="true" data-i="${i}" class="pet_${p.t}${avisos.length ? " aviso" : ""}">
         <span class="pnum"><input type="number" class="pos" min="1" max="${pets.length}" value="${i + 1}" title="Número de orden"/></span>
         <span class="pbody">
-          ${icon}<b>${info.tipo}</b> ${codigo}${info.nombre}${incluye}
-          <br/><span class="puestos">Puestos: ${puestos}</span>
-          ${avisos.map((a) => `<br/><small class="avisotxt">⚠️ ${a}</small>`).join("")}
+          <span class="mb-0.5 flex flex-wrap items-center gap-1"><span class="chip ${tipoCls}">${info.tipo}</span>${codigo}</span>
+          ${fly}<span class="font-medium text-slate-900">${info.nombre}</span>${incluye}
+          <span class="puestos">Puestos: ${puestos}</span>
+          ${avisos.map((a) => `<small class="avisotxt">⚠️ ${a}</small>`).join("")}
         </span>
         <span class="pbtn">
-          <button type="button" data-act="up" title="Subir"${i == 0 ? " disabled" : ""}>▲</button>
-          <button type="button" data-act="down" title="Bajar"${i == pets.length - 1 ? " disabled" : ""}>▼</button>
-          <button type="button" data-act="dup" title="Repetir esta petición debajo con otros tipos de puesto">⧉</button>
-          <button type="button" data-act="del" title="Quitar">✕</button>
+          <button type="button" data-act="up" title="Subir"${i == 0 ? " disabled" : ""}>${icon("arriba")}</button>
+          <button type="button" data-act="down" title="Bajar"${i == pets.length - 1 ? " disabled" : ""}>${icon("abajo")}</button>
+          <button type="button" data-act="dup" title="Repetir esta petición debajo con otros tipos de puesto">${icon("copiar", "h-3.5 w-3.5")}</button>
+          <button type="button" data-act="del" title="Quitar">${icon("x")}</button>
         </span>
       </li>`;
   });
   let html = "";
   if (pets.length > MAX_PETICIONES) {
-    html += `<p class="avisotxt">⚠️ Tienes ${pets.length} peticiones y la solicitud admite como máximo ${MAX_PETICIONES}.</p>`;
+    html += `<p class="note mb-2">${icon("aviso", "h-4 w-4 shrink-0")}<span>Tienes ${pets.length} peticiones y la solicitud admite como máximo ${MAX_PETICIONES}.</span></p>`;
   }
   html += `<ol class="listPeticiones">${lis.join("")}</ol>`;
   div.innerHTML = html;
@@ -1018,23 +1003,27 @@ function initPeticiones() {
 function popupPeticiones(c: Centro) {
   const st = State.getState();
   const pets = st.getPeticiones();
-  const en = pets.flatMap((p, i) => (cubre(p, c) ? [`nº ${i + 1}` + (p.t == "c" ? "" : ` (${peticionInfo(p).tipo.toLowerCase()})`)] : []));
+  const en = pets.flatMap((p, i) => {
+    if (!cubre(p, c)) return [];
+    const tipo = p.t == "c" ? "" : p.t == "d" ? " (DAT)" : ` (${peticionInfo(p).tipo.toLowerCase()})`;
+    return [`<b>nº ${i + 1}</b>${tipo}`];
+  });
   const parts: string[] = [];
-  if (en.length) parts.push(`📋 En tus peticiones ${en.join(", ")}`);
+  if (en.length) parts.push(`<div class="pop-row">${icon("lista")}<div>En tus peticiones ${en.join(", ")}</div></div>`);
   const btns: string[] = [];
   const l = c.localidad;
   if (l != null) {
     const info = peticionInfo({t: "l", id: l.id, puestos: []});
     const dis = st.hasPeticion({t: "l", id: l.id}) ? " disabled" : "";
-    btns.push(`<button type="button" data-add="l:${l.id}"${dis} title="Código ${l.id}: ${info.centros.length} centros">${info.tipo} ${l.txt}</button>`);
+    btns.push(`<button type="button" class="btn btn-sm" data-add="l:${l.id}"${dis} title="Código ${l.id}: ${info.centros.length} centros">${icon("mas", "h-3.5 w-3.5")}${info.tipo} ${l.txt}</button>`);
   }
   if (c.area != null && DAT[c.area] != null) {
     const dis = st.hasPeticion({t: "d", id: c.area}) ? " disabled" : "";
-    btns.push(`<button type="button" data-add="d:${c.area}"${dis}>DAT ${DAT[c.area]}</button>`);
+    btns.push(`<button type="button" class="btn btn-sm" data-add="d:${c.area}"${dis}>${icon("mas", "h-3.5 w-3.5")}DAT ${DAT[c.area]}</button>`);
   }
-  if (btns.length) parts.push("Añadir a tus peticiones: " + btns.join(" "));
+  if (btns.length) parts.push(`<div class="muted">Añadir a tus peticiones:</div><div class="pop-links">${btns.join("")}</div>`);
   if (parts.length == 0) return "";
-  return `<p class="popPeticiones">${parts.join("<br/>")}</p>`;
+  return `<div class="pop-sec">${parts.join("")}</div>`;
 }
 
 function dwnCsvPeticiones(this: HTMLAnchorElement) {

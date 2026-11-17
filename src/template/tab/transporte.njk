@@ -1,38 +1,23 @@
-<h1 class="sidebar-header">
-  Transporte
-  <span class="sidebar-close"><i class="fa fa-caret-left"></i></span>
-</h1>
+{% import "macros.njk" as m %}
+{{ m.header("Transporte") }}
 <div class="content">
-  <p>
-    <input id="estaciones" type="checkbox" />
-    <label for="estaciones"
-      >Mostrar estaciones de las lineas seleccionadas (*)</label
-    >
-  </p>
-  <fieldset class="metro">
-    <legend>Metro</legend>
-    {% for t in transporte.metro %}
-    {% if loop.index>1 %}<br/>{%endif %}
-    <input id="metro_{{t.linea}}" type="checkbox" /> <label for="metro_{{t.linea}}">{{t.linea}}</label>
-    {%endfor%}
+  <p class="muted">Muestra en el mapa las líneas de transporte que te interesen.</p>
+  <div class="card mt-3 p-3">
+    {{ m.check("estaciones", "Mostrar también las estaciones de las líneas elegidas") }}
+  </div>
+  {% for grupo, titulo in [["metro", "Metro"], ["cercanias", "Cercanías"], ["metro_ligero", "Metro ligero"]] %}
+  <fieldset class="{{ grupo }}">
+    <legend>{{ titulo }}</legend>
+    <div class="opt-grid">
+    {% for t in transporte[grupo] %}
+      <label class="opt-pill" for="{{ grupo }}_{{ t.linea }}" title="{{ titulo }} línea {{ t.linea }}">
+        <input id="{{ grupo }}_{{ t.linea }}" type="checkbox"/>
+        <span class="swatch" style="background-color: {{ t.color }}"></span>{{ t.linea }}
+      </label>
+    {% endfor %}
+    </div>
   </fieldset>
-  <fieldset class="cercanias">
-    <legend>Cercanias</legend>
-    {% for t in transporte.cercanias %}
-    {% if loop.index>1 %}<br/>{%endif %}
-    <input id="cercanias_{{t.linea}}" type="checkbox" /> <label for="cercanias_{{t.linea}}">{{t.linea}}</label>
-    {%endfor%}
-  </fieldset>
-  <fieldset class="metro_ligero">
-    <legend>Metro ligero</legend>
-    {% for t in transporte.metro_ligero %}
-    {% if loop.index>1 %}<br/>{%endif %}
-    <input id="metro_ligero_{{t.linea}}" type="checkbox" /> <label for="metro_ligero_{{t.linea}}">{{t.linea}}</label>
-    {%endfor%}
-  </fieldset>
-  <p>
-    (*) La ubicación de las estaciones es orientativa y puede haber otros
-    accesos que no esten representados.
-  </p>
+  {% endfor %}
+  <p class="muted mt-3">La ubicación de las estaciones es orientativa y puede haber accesos que no aparezcan.</p>
   {% include "tab/donar.njk" %}
 </div>
