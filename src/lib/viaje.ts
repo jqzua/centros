@@ -8,13 +8,17 @@
  *   un dato personal y no debe acabar en la base de datos pública ni en la URL.
  */
 
-export type Modo = "car" | "bike" | "foot";
+export type Modo = "car" | "bike" | "foot" | "transit";
 
 export const MODOS: Readonly<{ [m in Modo]: { txt: string; ico: string } }> = Object.freeze({
   car: { txt: "En coche (sin tráfico)", ico: "🚗" },
   bike: { txt: "En bicicleta", ico: "🚲" },
   foot: { txt: "A pie", ico: "🚶" },
+  transit: { txt: "En transporte público", ico: "🚌" },
 });
+
+/** Modos que se calculan en el navegador; el resto se importan desde un fichero */
+export const MODOS_CALCULABLES: readonly Modo[] = Object.freeze(["car", "bike", "foot"]);
 
 export type Origen = {
   readonly lat: number;
@@ -31,6 +35,19 @@ type Store = {
   modo: Modo;
   fecha: { [m in Modo]?: string };
   tiempos: { [m in Modo]?: { [id: string]: Tiempo } };
+  /** Descripción de cómo se calcularon (p.e. día y hora de salida en transporte público) */
+  info?: { [m in Modo]?: string };
+};
+
+/** Fichero de tiempos generado fuera de la web (ver py/transporte_publico.py) */
+export type FicheroViaje = {
+  v: 1;
+  tipo: "centros-viaje";
+  modo: Modo;
+  origen: Origen;
+  salida?: string;
+  fecha?: string;
+  tiempos: { [id: string]: Tiempo };
 };
 
 export type ViajeCentro = {
@@ -51,6 +68,7 @@ const OSRM: { [m in Modo]: string[] } = {
   ],
   bike: ["https://routing.openstreetmap.de/routed-bike/table/v1/driving/"],
   foot: ["https://routing.openstreetmap.de/routed-foot/table/v1/driving/"],
+  transit: [],
 };
 // Caja que engloba la Comunidad de Madrid (lon,lat)
 const VIEWBOX = "-4.6,41.2,-3.0,39.8";
@@ -68,6 +86,7 @@ function readStore(): Store {
     if (!(s.modo in MODOS)) s.modo = "car";
     s.fecha = s.fecha ?? {};
     s.tiempos = s.tiempos ?? {};
+    s.info = s.info ?? {};
     return s;
   } catch {
     return emptyStore();
@@ -139,6 +158,57 @@ export class Viaje {
     return this.store.fecha[this.store.modo] ?? null;
   }
 
+  get info(): string | null {
+    return this.store.info?.[this.store.modo] ?? null;
+  }
+
+  get calculable() {
+    return MODOS_CALCULABLES.includes(this.store.modo);
+  }
+
+  /**
+   * Importa un fichero de tiempos. Los tiempos dependen del origen, así que si el
+   * fichero se calculó desde otro punto se adopta ese punto (y se descartan los
+   * tiempos de los demás modos, que eran de otro origen).
+   */
+  importar(f: FicheroViaje) {
+    if (f == null || f.v !== 1 || f.tipo !== "centros-viaje" || !(f.modo in MODOS) ||
+        f.origen == null || typeof f.origen.lat != "number" || typeof f.origen.lon != "number" ||
+        f.tiempos == null || typeof f.tiempos != "object") {
+      throw new Error("El fichero no tiene el formato esperado");
+    }
+    const tiempos: { [id: string]: Tiempo } = {};
+    Object.entries(f.tiempos).forEach(([id, t]) => {
+      if (!Array.isArray(t)) return;
+      const seg = typeof t[0] == "number" ? t[0] : null;
+      const met = typeof t[1] == "number" ? t[1] : null;
+      tiempos[id] = [seg, met];
+    });
+    const o = this.store.origen;
+    const mismo = o != null && Math.abs(o.lat - f.origen.lat) < 0.0005 && Math.abs(o.lon - f.origen.lon) < 0.0005;
+    if (!mismo) {
+      this.store.origen = { lat: f.origen.lat, lon: f.origen.lon, txt: String(f.origen.txt ?? "Punto de partida") };
+      this.store.tiempos = {};
+      this.store.fecha = {};
+      this.store.info = {};
+    }
+    this.store.tiempos[f.modo] = tiempos;
+    this.store.fecha[f.modo] = f.fecha ?? new Date().toISOString();
+    this.store.info = this.store.info ?? {};
+    if (f.salida) this.store.info[f.modo] = String(f.salida);
+    else delete this.store.info[f.modo];
+    this.store.modo = f.modo;
+    this.changed();
+    return { cambioOrigen: !mismo, centros: Object.keys(tiempos).length };
+  }
+
+  /** ¿Importar este fichero cambiaría el punto de partida actual? */
+  cambiariaOrigen(f: FicheroViaje) {
+    const o = this.store.origen;
+    if (o == null || f?.origen == null) return false;
+    return !(Math.abs(o.lat - f.origen.lat) < 0.0005 && Math.abs(o.lon - f.origen.lon) < 0.0005);
+  }
+
   /** Cambiar el punto de partida invalida los tiempos calculados */
   setOrigen(o: Origen | null) {
     const old = this.store.origen;
@@ -152,6 +222,7 @@ export class Viaje {
     this.store.origen = o;
     this.store.tiempos = {};
     this.store.fecha = {};
+    this.store.info = {};
     this.changed();
   }
 
@@ -202,6 +273,7 @@ export class Viaje {
     const origen = this.store.origen;
     if (origen == null) throw new Error("Falta el punto de partida");
     const modo = this.store.modo;
+    if (!MODOS_CALCULABLES.includes(modo)) throw new Error(`El modo ${modo} no se calcula en la web`);
     const pend = this.pendientes(destinos);
     onProgress(0, pend.length);
     for (let i = 0; i < pend.length; i += LOTE) {

@@ -13,3 +13,8 @@ El tiempo de viaje desde casa se calcula en el navegador con
 [OSRM](https://routing.openstreetmap.de/) (coche, bici y a pie) y la dirección
 se localiza con [Nominatim](https://nominatim.openstreetmap.org/). El punto de
 partida y los tiempos solo se guardan en el `localStorage` del navegador.
+
+Los tiempos en **transporte público** no se pueden calcular en el navegador. Se
+generan con `py/transporte_publico.py` (r5py + horarios GTFS del Consorcio de
+Transportes + OpenStreetMap) y se importan desde la pestaña «Tiempo de viaje».
+El fichero generado contiene el punto de partida: no debe subirse al repositorio.

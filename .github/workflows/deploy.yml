@@ -18,6 +18,10 @@ concurrency:
 jobs:
   import_db:
     runs-on: ubuntu-latest
+    env:
+      # En los forks no existe la clave de Supabase: entonces no se escribe en la BD
+      # (la web sigue leyendo la del proyecto original) y el despliegue continúa.
+      HAS_DB_TARGET: ${{ secrets.DB_TARGET != '' }}
     steps:
       - name: Check out this repo
         uses: actions/checkout@v4
@@ -37,7 +41,7 @@ jobs:
           python3 etapas.py
           cd ..
       - name: SET DB
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.import_db == 'true' }}
+        if: ${{ env.HAS_DB_TARGET == 'true' && (github.event_name != 'workflow_dispatch' || github.event.inputs.import_db == 'true') }}
         env:
           DB_TARGET: ${{ secrets.DB_TARGET }}
         run: ./db/set_db.sh
