@@ -4,6 +4,14 @@ import { DBConcurso, Centro } from "../../lib/dbconcurso";
 import { set_transpo_layer } from "./transporte"
 import { set_area_layer } from './areas'
 import { State } from "../../lib/state";
+import {
+  Peticion,
+  PUESTOS,
+  DAT,
+  MAX_PETICIONES,
+  incluyePuestos,
+} from "../../lib/peticiones";
+import { getLocalidad } from "../../lib/dbconcurso";
 
 import {
   getVal,
@@ -95,6 +103,9 @@ class CentroManager {
     if (c == null) throw id + " not fund";
     return c;
   }
+  find(id: number): Centro | undefined {
+    return this._c[id];
+  }
   set(centros: Centro[]) {
     const latlon = new Set();
     this._c = Object.fromEntries(
@@ -137,11 +148,16 @@ class CentroManager {
       }
     });
 
+    const orden = new Map<number, number>();
+    State.getState().getPeticiones().forEach((p, i) => {
+      if (p.t == "c" && !orden.has(Number(p.id))) orden.set(Number(p.id), i);
+    });
+    seleccionados = seleccionados.sort((a, b) => (orden.get(a.id) ?? 0) - (orden.get(b.id) ?? 0));
+
     const dist = this.get_distancias();
     if (dist != null) {
       const d = dist.centro;
       const cmp = (c1: Centro, c2: Centro) => d[c1.id] - d[c2.id];
-      seleccionados = seleccionados.sort(cmp);
       descartados = descartados.sort(cmp);
       hidden = hidden.sort(cmp);
       shown = shown.sort(cmp);
@@ -277,6 +293,10 @@ function dwnTxtCentros(this: HTMLAnchorElement) {
       const opt = s.selectedOptions[0];
       filtro.push("* " +label+opt.textContent);
     });
+    [st.alumnosMin, st.alumnosMax].forEach(i => {
+      const v = i.get();
+      if (v != null) filtro.push("* " + (i.node?.getAttribute("data-label")??"") + v);
+    });
     filtro.push("* Tipos de centro:");
     tipos.forEach(t=>{
       filtro.push("    * " + t);
@@ -309,8 +329,18 @@ function dwnTxtCentros(this: HTMLAnchorElement) {
       txt = txt + "\nFiltro: ";
   }
     txt = txt + filtro + "\n";
+  const pets = State.getState().getPeticiones();
+  if (pets.length) {
+    txt = txt + "\nTus peticiones (en orden de preferencia):\n";
+    pets.forEach((p, i) => {
+      const info = peticionInfo(p);
+      txt = txt + `\n${i+1}. ${info.tipo} ${info.codigo??""} ${info.nombre}`.replace(/ +/g, " ");
+      txt = txt + ` [puestos ${p.puestos.join(" ")||"-"}]`;
+      if (p.t != "c") txt = txt + ` (${info.centros.length} centros)`;
+    });
+    txt = txt + "\n";
+  }
   let cols = [
-    ["Centros seleccionados por mi", estadistica.seleccionados],
     ["Centros seleccionados por el filtro", estadistica.shown],
     ["Centros descartados por el filtro", estadistica.hidden],
     ["Centros descartados por mi", estadistica.descartados],
@@ -353,7 +383,11 @@ function getPopUp(c: Centro) {
     `Código: <b>${c.id}</b>`,
     `<a href="geo:${c.latitud},${c.longitud}" title="Coordenadas: ${c.latitud}, ${c.longitud}">${c.direccion}</a>`,
   ];
-  if (c.alumnos != null) body[0] = body[0] + ` <span title="${c.alumnos.title}">(${c.alumnos.total} 🧑)</span>`;
+  if (c.alumnos != null) {
+    const a = c.alumnos;
+    const det = c.alumnado.map(x => `${x.etapa} ${x.alumnado}`).join(", ");
+    body.push(`🧑 <b>${a.total} alumnos</b> <small>(curso ${a.year}-${a.year+1}: ${det})</small>`);
+  }
   let links = c.web.map(lk=>{
     if (lk.match(/www\.madrid\.es/)) return `<a href="${lk}">madrid.es</a>`;
     return `<a href="${lk}">Web</a>`;
@@ -422,6 +456,7 @@ function getPopUp(c: Centro) {
     html = html + km + " kms</p>"
   }
   */
+  html = html + popupPeticiones(c);
   const marca = State.getState().getMarca(c.id);
   let chk1 = "";
   let chk2 = "";
@@ -445,6 +480,14 @@ function getPopUp(c: Centro) {
   html = html.trim();
   const div = document.createElement("div");
   div.innerHTML = html;
+  div.querySelectorAll("button[data-add]").forEach((b) =>
+    b.addEventListener("click", function (this: HTMLButtonElement) {
+      const [t, id] = this.getAttribute("data-add")!.split(":");
+      State.getState().addPeticion({t: t as Peticion["t"], id: id, puestos: ["01"]});
+      this.disabled = true;
+      this.textContent = "✔ " + this.textContent;
+    })
+  );
   div.querySelectorAll("input[type=radio]").forEach((e) =>
     e.addEventListener("change", function (this: HTMLInputElement) {
       if (!this.checked) return;
@@ -514,6 +557,8 @@ function mk_filter() {
   const invertir = st.invertir.get();
   const accesibilidad = st.accesibilidad.getSplit(",");
   const ensenanza = st.ensenanza.get();
+  const aluMin = st.alumnosMin.get();
+  const aluMax = st.alumnosMax.get();
   const isEnsenanzaOk = (c: Centro) => {
     switch (ensenanza) {
       case null: return true;
@@ -543,6 +588,12 @@ function mk_filter() {
     if (jornada != null && c.jornada!=jornada) return false;
     if (etapa != null && !c.hasEtapa(etapa)) return false;
     if (!isEnsenanzaOk(c)) return false;
+    if (aluMin != null || aluMax != null) {
+      const total = c.alumnos?.total;
+      if (total == null) return false;
+      if (aluMin != null && total < aluMin) return false;
+      if (aluMax != null && total > aluMax) return false;
+    }
     if (fpdual != null){
       if (fpdual == "con" && c.fpdual == false) return false;
       if (fpdual == "sin" && c.fpdual == true) return false;
@@ -593,14 +644,7 @@ function updateList() {
   const estadistica = CNT.get_estadistica();
   const set_html = (id: string, html:string) =>
     (document.getElementById(id)!.innerHTML = html);
-  set_html(
-    "cSel",
-    list_centros(
-      "Aún no has seleccionado ningún centro",
-      estadistica.seleccionados,
-      estadistica.distancias?.centro
-    )
-  );
+  renderPeticiones();
   set_html(
     "cShw",
     list_centros(
@@ -625,8 +669,8 @@ function updateList() {
       estadistica.distancias?.centro
     )
   );
-  document.querySelectorAll("#cSel, #cShw, #cHdn, #cDsc").forEach(h=>{
-    const count = h.querySelectorAll("li").length;
+  document.querySelectorAll("#peticiones, #cShw, #cHdn, #cDsc").forEach(h=>{
+    const count = h.id == "peticiones" ? State.getState().getPeticiones().length : h.querySelectorAll("li").length;
     const h2 = h.previousElementSibling;
     if (h2==null || h2.tagName!="H2") return;
     const small = h2.querySelector("small");
@@ -696,8 +740,297 @@ function list_centros(
   return html;
 }
 
+
+/* ===================== Peticiones ===================== */
+
+type PeticionInfo = {
+  tipo: string;
+  codigo: string | null;
+  nombre: string;
+  centros: Centro[];
+};
+
+function cubre(p: Peticion, c: Centro) {
+  if (p.t == "c") return p.id == c.id.toString();
+  if (p.t == "l") return c.localidad?.id == p.id;
+  return c.area == p.id;
+}
+
+function peticionInfo(p: Peticion): PeticionInfo {
+  const centros = CNT.all.filter((c) => cubre(p, c));
+  if (p.t == "c") {
+    const c = CNT.find(Number(p.id));
+    return {
+      tipo: "Centro",
+      codigo: p.id,
+      nombre: c == null ? "(no está en este concurso)" : c.abr_nombre,
+      centros: centros,
+    };
+  }
+  if (p.t == "l") {
+    const l = getLocalidad(p.id);
+    const distrito = l != null && l.dat == DAT.C && /^Madrid-/i.test(l.txt);
+    return {
+      tipo: distrito ? "Distrito" : "Localidad",
+      codigo: p.id,
+      nombre: l?.txt ?? "",
+      centros: centros,
+    };
+  }
+  return {
+    tipo: "DAT",
+    codigo: null,
+    nombre: DAT[p.id] ?? p.id,
+    centros: centros,
+  };
+}
+
+/** Avisos sobre una petición teniendo en cuenta las anteriores */
+function avisosPeticion(pets: readonly Peticion[], i: number, info: PeticionInfo) {
+  const p = pets[i];
+  const avisos: string[] = [];
+  if (p.puestos.length == 0) avisos.push("Marca al menos un tipo de puesto.");
+  if (p.t != "c" && p.puestos.includes("06"))
+    avisos.push("El tipo 06 solo se adjudica pidiendo el centro concreto, no por localidad, distrito o DAT.");
+  if (p.t != "c" && info.centros.length == 0)
+    avisos.push("No hay centros de este concurso en el mapa para esta petición.");
+  // ¿Todo lo que pide esta petición ya estaba en una anterior?
+  if (p.puestos.length && info.centros.length) {
+    for (let j = 0; j < i; j++) {
+      const q = pets[j];
+      if (!incluyePuestos(q, p)) continue;
+      if (info.centros.every((c) => cubre(q, c))) {
+        avisos.push(`Ya está incluida en la petición nº ${j + 1} con los mismos tipos de puesto: no añade nada.`);
+        break;
+      }
+    }
+  }
+  return avisos;
+}
+
+function renderPeticiones() {
+  const div = document.getElementById("peticiones");
+  if (div == null) return;
+  const st = State.getState();
+  const pets = st.getPeticiones();
+  if (pets.length == 0) {
+    div.innerHTML = "<p>Aún no has añadido ninguna petición. Marca centros como seleccionados en el mapa o añade una localidad, distrito o DAT.</p>";
+    syncAddButtons();
+    return;
+  }
+  const lis = pets.map((p, i) => {
+    const info = peticionInfo(p);
+    const avisos = avisosPeticion(pets, i, info);
+    const puestos = Object.entries(PUESTOS).map(([k, v]) => {
+      const chk = p.puestos.includes(k) ? " checked" : "";
+      return `<label title="${v}"><input type="checkbox" data-puesto="${k}"${chk}/>${k}</label>`;
+    }).join(" ");
+    const icon = (() => {
+      if (p.t != "c") return "";
+      const c = CNT.find(Number(p.id));
+      if (c == null) return "";
+      return `<img class="fly" src="${get_icon(c).url}" data-fly="${c.latitud},${c.longitud}" title="Ver en el mapa"/>`;
+    })();
+    const incluye = p.t == "c" ? "" : ` <small>(${info.centros.length} centro${info.centros.length == 1 ? "" : "s"})</small>`;
+    const codigo = info.codigo == null ? "" : `<code>${info.codigo}</code> `;
+    return `
+      <li draggable="true" data-i="${i}" class="pet_${p.t}${avisos.length ? " aviso" : ""}">
+        <span class="pnum"><input type="number" class="pos" min="1" max="${pets.length}" value="${i + 1}" title="Número de orden"/></span>
+        <span class="pbody">
+          ${icon}<b>${info.tipo}</b> ${codigo}${info.nombre}${incluye}
+          <br/><span class="puestos">Puestos: ${puestos}</span>
+          ${avisos.map((a) => `<br/><small class="avisotxt">⚠️ ${a}</small>`).join("")}
+        </span>
+        <span class="pbtn">
+          <button type="button" data-act="up" title="Subir"${i == 0 ? " disabled" : ""}>▲</button>
+          <button type="button" data-act="down" title="Bajar"${i == pets.length - 1 ? " disabled" : ""}>▼</button>
+          <button type="button" data-act="dup" title="Repetir esta petición debajo con otros tipos de puesto">⧉</button>
+          <button type="button" data-act="del" title="Quitar">✕</button>
+        </span>
+      </li>`;
+  });
+  let html = "";
+  if (pets.length > MAX_PETICIONES) {
+    html += `<p class="avisotxt">⚠️ Tienes ${pets.length} peticiones y la solicitud admite como máximo ${MAX_PETICIONES}.</p>`;
+  }
+  html += `<ol class="listPeticiones">${lis.join("")}</ol>`;
+  div.innerHTML = html;
+  syncAddButtons();
+}
+
+function syncAddButtons() {
+  const st = State.getState();
+  ([["addLocalidad", "btnAddLocalidad", "l"], ["addDat", "btnAddDat", "d"]] as const).forEach(([slc, btn, t]) => {
+    const s = document.getElementById(slc) as HTMLSelectElement | null;
+    const b = document.getElementById(btn) as HTMLButtonElement | null;
+    if (s == null || b == null) return;
+    s.querySelectorAll("option[value]").forEach((o) => {
+      const v = (o as HTMLOptionElement).value;
+      (o as HTMLOptionElement).disabled = v.length > 0 && st.hasPeticion({t: t, id: v});
+    });
+    b.disabled = s.value.length == 0 || st.hasPeticion({t: t, id: s.value});
+  });
+}
+
+function removePeticion(i: number) {
+  const st = State.getState();
+  const p = st.getPeticiones()[i];
+  if (p == null) return;
+  st.removePeticion(i);
+  if (p.t == "c") {
+    const c = CNT.find(Number(p.id));
+    if (c != null) setCentroMarker(c, true);
+    updateCentros(false);
+  }
+}
+
+function initPeticiones() {
+  const div = document.getElementById("peticiones");
+  if (div == null) return;
+  const st = State.getState();
+  const liIndex = (e: Event) => {
+    const li = (e.target as HTMLElement).closest("li[data-i]");
+    return li == null ? null : Number(li.getAttribute("data-i"));
+  };
+  div.addEventListener("click", (e) => {
+    const t = e.target as HTMLElement;
+    const fly = t.getAttribute("data-fly");
+    if (fly != null) {
+      const [lat, lon] = fly.split(",").map(Number);
+      window.MAP.flyTo([lat, lon], 15);
+      return;
+    }
+    const act = t.closest("button[data-act]")?.getAttribute("data-act");
+    const i = liIndex(e);
+    if (act == null || i == null) return;
+    if (act == "up") st.movePeticion(i, i - 1);
+    if (act == "down") st.movePeticion(i, i + 1);
+    if (act == "dup") st.duplicatePeticion(i);
+    if (act == "del") removePeticion(i);
+  });
+  div.addEventListener("change", (e) => {
+    const t = e.target as HTMLInputElement;
+    const i = liIndex(e);
+    if (i == null) return;
+    if (t.classList.contains("pos")) {
+      const to = parseInt(t.value);
+      if (!isNaN(to)) st.movePeticion(i, to - 1);
+      else renderPeticiones();
+      return;
+    }
+    if (t.hasAttribute("data-puesto")) {
+      const li = t.closest("li")!;
+      const puestos = Array.from(li.querySelectorAll("input[data-puesto]:checked")).map((x) => x.getAttribute("data-puesto")!);
+      st.setPuestos(i, puestos);
+    }
+  });
+  // Arrastrar y soltar
+  let dragFrom: number | null = null;
+  div.addEventListener("dragstart", (e) => {
+    dragFrom = liIndex(e);
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+  });
+  div.addEventListener("dragover", (e) => {
+    if (dragFrom == null) return;
+    e.preventDefault();
+    div.querySelectorAll("li.dragover").forEach((li) => li.classList.remove("dragover"));
+    (e.target as HTMLElement).closest("li[data-i]")?.classList.add("dragover");
+  });
+  div.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const to = liIndex(e);
+    if (dragFrom != null && to != null) st.movePeticion(dragFrom, to);
+    dragFrom = null;
+  });
+  div.addEventListener("dragend", () => {
+    dragFrom = null;
+    div.querySelectorAll("li.dragover").forEach((li) => li.classList.remove("dragover"));
+  });
+  // Añadir localidad / DAT
+  ([["addLocalidad", "btnAddLocalidad", "l"], ["addDat", "btnAddDat", "d"]] as const).forEach(([slc, btn, t]) => {
+    const s = document.getElementById(slc) as HTMLSelectElement | null;
+    const b = document.getElementById(btn);
+    if (s == null || b == null) return;
+    s.addEventListener("change", syncAddButtons);
+    b.addEventListener("click", () => {
+      if (s.value.length == 0) return;
+      st.addPeticion({t: t, id: s.value, puestos: ["01"]});
+      s.value = "";
+      syncAddButtons();
+    });
+  });
+  st.onPeticiones(updateList);
+}
+
+/** Bloque del popup: en qué peticiones está el centro y botones para añadir su localidad/DAT */
+function popupPeticiones(c: Centro) {
+  const st = State.getState();
+  const pets = st.getPeticiones();
+  const en = pets.flatMap((p, i) => (cubre(p, c) ? [`nº ${i + 1}` + (p.t == "c" ? "" : ` (${peticionInfo(p).tipo.toLowerCase()})`)] : []));
+  const parts: string[] = [];
+  if (en.length) parts.push(`📋 En tus peticiones ${en.join(", ")}`);
+  const btns: string[] = [];
+  const l = c.localidad;
+  if (l != null) {
+    const info = peticionInfo({t: "l", id: l.id, puestos: []});
+    const dis = st.hasPeticion({t: "l", id: l.id}) ? " disabled" : "";
+    btns.push(`<button type="button" data-add="l:${l.id}"${dis} title="Código ${l.id}: ${info.centros.length} centros">${info.tipo} ${l.txt}</button>`);
+  }
+  if (c.area != null && DAT[c.area] != null) {
+    const dis = st.hasPeticion({t: "d", id: c.area}) ? " disabled" : "";
+    btns.push(`<button type="button" data-add="d:${c.area}"${dis}>DAT ${DAT[c.area]}</button>`);
+  }
+  if (btns.length) parts.push("Añadir a tus peticiones: " + btns.join(" "));
+  if (parts.length == 0) return "";
+  return `<p class="popPeticiones">${parts.join("<br/>")}</p>`;
+}
+
+function dwnCsvPeticiones(this: HTMLAnchorElement) {
+  const pets = State.getState().getPeticiones();
+  const esc = (v: string | number | null) => {
+    const s = (v ?? "").toString().replace(/<.*?>/g, "");
+    return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const rows: (string | number | null)[][] = [
+    ["Orden", "Tipo", "Código", "Nombre", "DAT", "Tipos de puesto", "Centros incluidos", "Avisos"],
+  ];
+  const datOrden: string[] = [];
+  pets.forEach((p, i) => {
+    const info = peticionInfo(p);
+    const dat = (() => {
+      if (p.t == "d") return DAT[p.id];
+      if (p.t == "l") return getLocalidad(p.id)?.dat ?? null;
+      return CNT.find(Number(p.id))?.dat ?? null;
+    })();
+    if (dat != null && !datOrden.includes(dat)) datOrden.push(dat);
+    rows.push([
+      i + 1,
+      info.tipo,
+      info.codigo,
+      p.t == "d" ? "DAT " + info.nombre : info.nombre,
+      dat,
+      p.puestos.join(" "),
+      info.centros.length,
+      avisosPeticion(pets, i, info).join(" "),
+    ]);
+  });
+  Object.values(DAT).forEach((d) => {
+    if (!datOrden.includes(d)) datOrden.push(d);
+  });
+  rows.push([]);
+  rows.push(["Orden de DAT sugerido (paso 6.1 de la solicitud, según el orden de tus peticiones)"]);
+  datOrden.forEach((d, i) => rows.push([i + 1, "DAT", null, d]));
+  rows.push([]);
+  rows.push([document.location.href]);
+  const csv = "﻿" + rows.map((r) => r.map(esc).join(";")).join("\r\n");
+  this.download = dateToString(new Date()) + "_peticiones.csv";
+  this.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("download")!.addEventListener("click", dwnTxtCentros);
+  document.getElementById("downloadPeticiones")?.addEventListener("click", dwnCsvPeticiones);
+  initPeticiones();
   const st = State.getState();
   st.onFiltro(()=>updateCentros(false));
   st.onTransporte(set_transpo_layer);

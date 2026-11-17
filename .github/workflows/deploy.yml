@@ -68,6 +68,13 @@ jobs:
         with:
           name: db.sqlite
           path: ./public/
+      - name: Códigos de localidad/distrito
+        continue-on-error: true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+          cd py
+          python3 localidades.py --db ../public/db.sqlite
       - name: Install dependencies
         run: npm ci
       - name: Build

@@ -1,5 +1,6 @@
 import { InputBoolean, InputGroupBoolean, SelectNumber, InputNumber, SelectString, FormField } from "./form";
 import { decodeArray, encodeArray } from "./query_number";
+import { Peticion, PUESTOS_DEFECTO, decodePeticiones, encodePeticiones, samePeticion } from "./peticiones";
 
 const DELTA=28000000;
 
@@ -16,6 +17,8 @@ export class State {
     public readonly etapa = new SelectNumber("#etapa", null, 'e');
     public readonly fpdual = new SelectString("#fpdual", null, 'fp');
     public readonly ensenanza = new SelectString("#ensenanza", null, 'en');
+    public readonly alumnosMin = new InputNumber("#alu_min", null, 'amin');
+    public readonly alumnosMax = new InputNumber("#alu_max", null, 'amax');
     public readonly nocturno = new InputBoolean("#nocturno", true, 'noc');
     public readonly dificultad = new InputBoolean("#dificultad", true, 'dif');
     public readonly excelencia = new InputBoolean("#excelencia", true, 'exc');
@@ -27,6 +30,8 @@ export class State {
     public readonly transporte = new InputGroupBoolean(".metro input, .cercanias input, .metro_ligero input", [], "t");
     private __circleMarker: null|[number, number] = null;
     private readonly __onchange: EventListener[] = [];
+    private __peticiones: Peticion[] = [];
+    private readonly __onpeticiones: (() => void)[] = [];
 
     static getState() {
         if (State.__instance == null) {
@@ -60,7 +65,90 @@ export class State {
             if (this.__centros.get(id) === val) return false;
             this.__centros.set(id, val)
         }
+        // Un centro seleccionado es una petición de centro, y viceversa
+        if (val === State.SELECCIONADO) {
+            this.__addPeticion({t: "c", id: id.toString(), puestos: PUESTOS_DEFECTO});
+        } else {
+            this.__peticiones = this.__peticiones.filter(p => !(p.t == "c" && p.id == id.toString()));
+        }
         this.toQuerty();
+        this.__firePeticiones();
+        return true;
+    }
+
+    /* ---------- Peticiones ordenadas ---------- */
+
+    public getPeticiones(): readonly Peticion[] {
+        return this.__peticiones;
+    }
+
+    public onPeticiones(fnc: () => void) {
+        this.__onpeticiones.push(fnc);
+    }
+
+    private __firePeticiones() {
+        this.__onpeticiones.forEach(f => f());
+    }
+
+    private __addPeticion(p: Peticion) {
+        if (this.__peticiones.some(x => samePeticion(x, p))) return false;
+        this.__peticiones.push(p);
+        return true;
+    }
+
+    /** Añade al final una petición de localidad/distrito o DAT (los centros se añaden con setMarca) */
+    public addPeticion(p: Peticion) {
+        if (p.t == "c") return this.setMarca(Number(p.id), State.SELECCIONADO);
+        if (!this.__addPeticion(p)) return false;
+        this.toQuerty();
+        this.__firePeticiones();
+        return true;
+    }
+
+    public hasPeticion(p: Omit<Peticion, "puestos">) {
+        return this.__peticiones.some(x => x.t == p.t && x.id == p.id);
+    }
+
+    public removePeticion(i: number) {
+        const p = this.__peticiones[i];
+        if (p == null) return false;
+        this.__peticiones.splice(i, 1);
+        // Si era la última petición de ese centro, deja de estar seleccionado
+        if (p.t == "c" && !this.__peticiones.some(x => samePeticion(x, p))) {
+            this.__centros.delete(Number(p.id));
+        }
+        this.toQuerty();
+        this.__firePeticiones();
+        return true;
+    }
+
+    /** Duplica una petición justo debajo (para pedir el mismo destino con otros tipos de puesto) */
+    public duplicatePeticion(i: number) {
+        const p = this.__peticiones[i];
+        if (p == null) return false;
+        this.__peticiones.splice(i + 1, 0, {...p, puestos: []});
+        this.toQuerty();
+        this.__firePeticiones();
+        return true;
+    }
+
+    public movePeticion(from: number, to: number) {
+        const n = this.__peticiones.length;
+        to = Math.max(0, Math.min(n - 1, to));
+        if (from == to || from < 0 || from >= n) return false;
+        const [p] = this.__peticiones.splice(from, 1);
+        this.__peticiones.splice(to, 0, p);
+        this.toQuerty();
+        this.__firePeticiones();
+        return true;
+    }
+
+    public setPuestos(i: number, puestos: string[]) {
+        const p = this.__peticiones[i];
+        if (p == null) return false;
+        this.__peticiones[i] = {...p, puestos: Array.from(new Set(puestos)).sort()};
+        this.toQuerty();
+        this.__firePeticiones();
         return true;
     }
 
@@ -93,6 +181,7 @@ export class State {
     toForm() {
         this.__getImputs().forEach(i=>i.reset());
         this.__centros.clear()
+        this.__peticiones = [];
         const old = this.getQuerty()
         const qr = new URLSearchParams((new URL(document.location.href)).search);
         const gt = (k:string) => (qr.get(k)??"").split(',').flatMap((i) => {return (i=i.trim()).length?i:[]});
@@ -102,7 +191,9 @@ export class State {
             this.etapa,
             this.kms,
             this.fpdual,
-            this.ensenanza
+            this.ensenanza,
+            this.alumnosMin,
+            this.alumnosMax
         ].forEach((i) => {
             const v = qr.get(i.qr);
             if(v!=null) return i.set(v);
@@ -130,6 +221,15 @@ export class State {
         }
         const ko = gt('ko').filter(center_filter(State.DESCARTADO));
         const ok = gt('ok').filter(center_filter(State.SELECCIONADO));
+        decodePeticiones(qr.get('p')).forEach(p => {
+            // permite repetir destino con distintos tipos de puesto
+            this.__peticiones.push(p);
+            if (p.t == "c") this.__centros.set(Number(p.id), State.SELECCIONADO);
+        });
+        // URLs antiguas: centros seleccionados sin petición -> al final de la lista
+        this.__centros.forEach((v, k) => {
+            if (v === State.SELECCIONADO) this.__addPeticion({t: "c", id: k.toString(), puestos: PUESTOS_DEFECTO});
+        });
         [
             this.nocturno,
             this.dificultad,
@@ -149,6 +249,7 @@ export class State {
         });
         this.__circleMarker = ll.length==2?[ll[0],ll[1]]:null;
         const nw = this.getQuerty()
+        this.__firePeticiones();
         if (old == nw) return;
         this.__onchange.forEach(f=>f(new Event("change")));
         
@@ -163,7 +264,9 @@ export class State {
             this.etapa,
             this.kms,
             this.fpdual,
-            this.ensenanza
+            this.ensenanza,
+            this.alumnosMin,
+            this.alumnosMax
         ].forEach((i) => {
             const v = i.get()
             if(v!=null) return qr.push(`${i.qr}=${v}`);
@@ -193,16 +296,15 @@ export class State {
         ].forEach((i) => {
             if(i.get() === true) ok.push(i.qr);
         })
-        const ok_centro: number[] = [];
         const ko_centro: number[] = [];
+        // Los seleccionados ya van, ordenados, en las peticiones (p=...)
         this.__centros.forEach((v, k) => {
-            if (v === State.SELECCIONADO) ok_centro.push(k-DELTA);
             if (v === State.DESCARTADO) ko_centro.push(k-DELTA);
         });
-        if (ok_centro.length) ok.push("ctr"+encodeArray(ok_centro));
         if (ko_centro.length) ko.push("ctr"+encodeArray(ko_centro));
         if (ok.length) qr.push("ok="+ok.join(','));
         if (ko.length) qr.push("ko="+ko.join(','));
+        if (this.__peticiones.length) qr.push("p="+encodePeticiones(this.__peticiones));
         if (this.__circleMarker) qr.push(`ll=${this.__circleMarker[0]},${this.__circleMarker[1]}`);
         const query = qr.length==0?"":("?"+qr.join("&"));
         return query;
@@ -228,7 +330,9 @@ export class State {
             this.accesibilidad.node,
             this.invertir.node,
             this.fpdual.node,
-            this.ensenanza.node
+            this.ensenanza.node,
+            this.alumnosMin.node,
+            this.alumnosMax.node
         ]
     }
     getInputsTransporte() {

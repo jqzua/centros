@@ -7,6 +7,7 @@ import { Mail, get_distance, yJoin, toTitle } from "../lib/util";
 import transporte from "../assets/transporte/transporte.json";
 import estaciones from "../assets/transporte/estaciones.json";
 import type { Tables } from "../lib/database.types";
+import { MAX_PETICIONES } from "../lib/peticiones";
 
 const DB = new DBConcurso();
 
@@ -128,6 +129,7 @@ async function do_render(env: Record<string, string>) {
             `${c.id}/index.html`,
             {
                 concurso: c,
+                max_peticiones: MAX_PETICIONES,
                 jornadas: jornadas,
                 distancia: {
                     min: min,

@@ -22,6 +22,10 @@
     <label for="dwn_emails">Mail</label><br />
     <input id="dwn_telefonos" type="checkbox" />
     <label for="dwn_telefonos">Teléfono</label>
+    {% if concurso.hasAlumnado %}<br />
+    <input id="dwn_alumnado_txt" type="checkbox" />
+    <label for="dwn_alumnado_txt">Alumnado</label>
+    {% endif %}
     {% if concurso.showEnsenanza %}<br />
     <input id="dwn_ensenanzas" type="checkbox" />
     <label for="dwn_ensenanzas">ESO/Bachillerato y FP</label>
@@ -37,6 +41,17 @@
       <button>Descargar</button>
     </a>
   </p>
+  <fieldset>
+    <legend>Peticiones para la solicitud</legend>
+    <p style="margin-top: 0;">
+      Tus peticiones en orden, con el código que hay que introducir en la
+      aplicación de la Comunidad de Madrid (las DAT se eligen por su nombre).
+      Se descarga como CSV, que puedes abrir con una hoja de cálculo.
+    </p>
+    <a download="peticiones.csv" href="data:text/csv;charset=utf-8," id="downloadPeticiones">
+      <button>Descargar peticiones</button>
+    </a>
+  </fieldset>
   <p>
     (*) También puedes descargar <a href="../db.sqlite">la base de datos SQLite</a>
     con todos los datos de esta web.

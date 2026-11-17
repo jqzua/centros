@@ -1,6 +1,8 @@
 import { DataBase, } from "./supabaseClient";
 import { smart_title, toTitle } from "./util";
 import centro_accesib from '../assets/accesibilidad.json';
+import localidades from '../assets/localidades.json';
+import { DAT } from "./peticiones";
 import type { Tables } from "./database.types";
 
 type AlumnadoEtapa = {
@@ -22,6 +24,33 @@ const ALUMNADO_SECUNDARIA = /^(ESO|Bachillerato)$/i;
 const ALUMNADO_FP = /^FP\b/i;
 
 export type Ensenanza = "sec" | "fp";
+
+/** Localidad (o distrito en Madrid capital) tal como se codifica en las peticiones */
+export type Localidad = {
+  readonly id: string;
+  readonly txt: string;
+  readonly dat: string|null;
+};
+
+const LOCALIDAD = localidades.localidad as {[id: string]: {txt: string, dat: string|null}};
+const CENTRO_LOCALIDAD = localidades.centro as {[id: string]: string};
+const _cache_localidad = new Map<string, Localidad>();
+
+function prettyLocalidad(txt: string) {
+  // "ALAMO(EL)" -> "Alamo (El)", "MADRID-USERA" -> "Madrid-Usera"
+  txt = txt.replace(/\s*\((EL|LA|LOS|LAS)\)\s*$/i, (_, a) => ` (${toTitle(a)})`);
+  return smart_title(txt).replace(/\((el|la|los|las)\)/, (_, a) => `(${toTitle(a)})`);
+}
+
+export function getLocalidad(id: string): Localidad | null {
+  let l = _cache_localidad.get(id);
+  if (l != null) return l;
+  const raw = LOCALIDAD[id];
+  if (raw == null) return null;
+  l = Object.freeze({id: id, txt: prettyLocalidad(raw.txt), dat: raw.dat});
+  _cache_localidad.set(id, l);
+  return l;
+}
 
 function invert(obj: {[k: string|number]: number[]}) {
   const m = new Map<number, string[]>();
@@ -280,6 +309,40 @@ class Concurso {
     return this._c.id;
   }
 
+  /** Centros con y sin coordenadas: las peticiones por localidad o DAT incluyen a todos */
+  get todos(): readonly Centro[] {
+    return [...this.centros, ...this.desubicados];
+  }
+
+  /** Localidades/distritos del concurso con su número de centros, agrupables por DAT */
+  get localidades() {
+    const m = new Map<string, {localidad: Localidad, count: number}>();
+    this.todos.forEach(c => {
+      const l = c.localidad;
+      if (l == null) return;
+      const x = m.get(l.id);
+      if (x == null) m.set(l.id, {localidad: l, count: 1});
+      else x.count++;
+    });
+    return Array.from(m.values()).sort((a, b) => a.localidad.txt.localeCompare(b.localidad.txt));
+  }
+
+  get dats() {
+    const m = new Map<string, number>();
+    this.todos.forEach(c => {
+      if (c.area != null) m.set(c.area, (m.get(c.area) ?? 0) + 1);
+    });
+    return Object.entries(DAT).flatMap(([id, txt]) => {
+      const count = m.get(id);
+      if (count == null) return [];
+      return {id: id, txt: txt, count: count, localidades: this.localidades.filter(l => l.localidad.dat == txt)};
+    });
+  }
+
+  get hasAlumnado() {
+    return this.centros.some(c => c.alumnos != null);
+  }
+
   get cuerpo() {
     return this._c.cuerpo;
   }
@@ -375,8 +438,31 @@ class Centro {
     }
   }
 
+  get alumnado_txt(): string | null {
+    const a = this.alumnos;
+    if (a == null) return null;
+    return `Alumnado ${a.year}-${a.year+1}: ${a.total} (${this.alumnado.map(x => `${x.etapa} ${x.alumnado}`).join(", ")})`;
+  }
+
   get id(): number {
     return this._c.id;
+  }
+
+  /** Letra de la Dirección de Área Territorial */
+  get area(): string | null {
+    return this._c.area;
+  }
+
+  get dat(): string | null {
+    if (this._c.area == null) return null;
+    return DAT[this._c.area] ?? null;
+  }
+
+  /** Localidad, o distrito si es Madrid capital, según el anexo oficial de códigos */
+  get localidad(): Localidad | null {
+    const id = CENTRO_LOCALIDAD[this._c.id.toString()];
+    if (id == null) return null;
+    return getLocalidad(id);
   }
 
   hasEtapa(s: number) {

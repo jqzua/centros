@@ -74,6 +74,20 @@
     </p>
   </fieldset>
   {% endif %}
+  {% if concurso.hasAlumnado %}
+  <fieldset>
+    <legend>Tamaño del centro</legend>
+    <label for="alu_min">Entre</label>
+    <input id="alu_min" type="number" min="0" step="50" title="Mínimo de alumnos (vacío para no filtrar)" data-label="Alumnos como mínimo: " />
+    <label for="alu_max">y</label>
+    <input id="alu_max" type="number" min="0" step="50" title="Máximo de alumnos (vacío para no filtrar)" data-label="Alumnos como máximo: " />
+    <label for="alu_max">alumnos</label>
+    <p style="margin-bottom: 0;">
+      Alumnado total del último curso publicado (todas las etapas). Si usas
+      este filtro se ocultan los centros sin datos de alumnado.
+    </p>
+  </fieldset>
+  {% endif %}
   <fieldset>
     <legend>Accesibilidad</legend>
     <select id="accesibilidad" style="width: 100%;" data-label="Accesibilidad: ">

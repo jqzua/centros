@@ -242,3 +242,57 @@ header p a {
   font-weight: bold;
   color: white;
 }
+/* Peticiones ordenadas */
+ol.listPeticiones {
+  list-style: none;
+  padding-left: 0 !important;
+  margin: 0;
+}
+ol.listPeticiones li {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+  padding: 4px 2px;
+  border-bottom: 1px solid #ddd;
+  cursor: grab;
+  background-color: inherit;
+}
+ol.listPeticiones li.pet_l { background-color: #eef6ff; }
+ol.listPeticiones li.pet_d { background-color: #f3eefc; }
+ol.listPeticiones li.aviso { border-left: 3px solid #e0a000; }
+ol.listPeticiones li.dragover { border-top: 2px solid #333; }
+ol.listPeticiones li .pnum input.pos {
+  width: 3.2em;
+}
+ol.listPeticiones li .pbody {
+  flex: 1;
+  min-width: 0;
+}
+ol.listPeticiones li .pbody img.fly {
+  height: 16px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+ol.listPeticiones li .puestos label {
+  white-space: nowrap;
+  font-size: 0.9em;
+}
+ol.listPeticiones li .pbtn {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 4.5em;
+}
+ol.listPeticiones li .pbtn button {
+  padding: 0 4px;
+  min-width: 2em;
+}
+.avisotxt {
+  color: #8a5a00;
+}
+p.popPeticiones button {
+  margin: 2px 2px 0 0;
+}
+#addPeticion select {
+  margin-bottom: 4px;
+}
