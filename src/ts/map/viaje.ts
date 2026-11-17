@@ -7,6 +7,7 @@ import {
   Origen,
   geocodificar,
   formatMinutos,
+  FicheroViaje,
 } from "../../lib/viaje";
 import { icon } from "../../lib/icons";
 
@@ -43,6 +44,7 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
   const btnBorrar = $<HTMLButtonElement>("viaje_borrar");
   const progreso = $<HTMLProgressElement>("viaje_progreso");
   const estado = $<HTMLParagraphElement>("viaje_estado");
+  const fichero = $<HTMLInputElement>("viaje_fichero");
   if (txtOrigen == null || btnCalcular == null || estado == null) return;
 
   let ctrl: AbortController | null = null;
@@ -58,7 +60,7 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
     const o = V.origen;
     txtOrigen.innerHTML = o == null
       ? `<span class="text-slate-500">Aún no has elegido el punto de partida.</span>`
-      : `<span class="flex items-start gap-2"><span class="casa-icon h-6 w-6 shrink-0">${icon("casa", "h-3.5 w-3.5")}</span><span><b>${esc(o.txt)}</b><br/><span class="muted">${o.lat.toFixed(5)}, ${o.lon.toFixed(5)} · arrastra la casa del mapa para ajustarlo</span></span></span>`;
+      : `<span class="flex items-start gap-2"><span class="casa-icon h-6 w-6 shrink-0">${icon("casa", "h-3.5 w-3.5")}</span><span><b>${esc(o.txt)}</b><br/><span class="muted">${o.lat.toFixed(5)}, ${o.lon.toFixed(5)} · arrastra la casa del mapa para ajustarlo (se borrarán los tiempos)</span></span></span>`;
   };
 
   const renderEstado = () => {
@@ -67,6 +69,7 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
     const pend = V.pendientes(destinos).length;
     const hechos = total - pend;
     const enCurso = ctrl != null;
+    btnCalcular.hidden = !V.calculable;
     btnCalcular.disabled = enCurso || V.origen == null || pend == 0 || total == 0;
     btnCalcular.textContent = pend > 0 && hechos > 0 ? `Calcular los ${pend} que faltan` : "Calcular tiempos";
     if (btnCancelar) btnCancelar.hidden = !enCurso;
@@ -75,15 +78,17 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
     if (modo) modo.disabled = enCurso;
     const partes: string[] = [];
     if (mensaje) partes.push(mensaje);
-    if (V.origen == null) partes.push("Elige primero el punto de partida.");
+    if (!V.calculable && V.count() == 0) partes.push(`${MODOS[V.modo].ico} Aún no has importado tiempos en transporte público.`);
+    else if (V.origen == null) partes.push("Elige primero el punto de partida.");
     else if (total > 0) {
       const sinRuta = destinos.filter((d) => V.isCalculado(d.id) && V.getCentro(d.id) == null).length;
-      let t = `${MODOS[V.modo].ico} Calculados ${hechos} de ${total} centros`;
+      let t = `${MODOS[V.modo].ico} ${V.calculable ? "Calculados" : "Con tiempo importado"} ${hechos} de ${total} centros`;
       if (V.fecha) t += ` (${new Date(V.fecha).toLocaleDateString("es-ES")})`;
-      if (sinRuta) t += `, ${sinRuta} sin ruta`;
+      if (sinRuta) t += `, ${sinRuta} sin ruta o demasiado lejos`;
       partes.push(t + ".");
       const mins = destinos.flatMap((d) => V.getCentro(d.id)?.minutos ?? []);
       if (mins.length) partes.push(`Entre ${formatMinutos(Math.min(...mins))} y ${formatMinutos(Math.max(...mins))}.`);
+      if (V.info) partes.push(`<span class="muted">${esc(V.info)}</span>`);
     }
     estado.innerHTML = partes.join("<br/>");
     const info = $<HTMLParagraphElement>("viaje_max_info");
@@ -186,7 +191,10 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
 
   if (modo) {
     modo.value = V.modo;
-    modo.addEventListener("change", () => V.setModo(modo.value as Modo));
+    modo.addEventListener("change", () => {
+      mensaje = null;
+      V.setModo(modo.value as Modo);
+    });
   }
 
   // Cálculo en segundo plano
@@ -217,6 +225,29 @@ export function initViaje(getDestinos: () => readonly Destino[], onUpdate: () =>
   });
 
   btnCancelar?.addEventListener("click", () => ctrl?.abort());
+
+  // Importar un fichero de tiempos (p.e. transporte público)
+  fichero?.addEventListener("change", async () => {
+    const f = fichero.files?.[0];
+    fichero.value = "";
+    if (f == null) return;
+    try {
+      const data = JSON.parse(await f.text()) as FicheroViaje;
+      if (V.cambiariaOrigen(data) &&
+          !confirm(`Este fichero se calculó desde «${data.origen.txt}». Se usará ese punto de partida y se borrarán los tiempos calculados desde el actual. ¿Continuar?`)) {
+        return;
+      }
+      ctrl?.abort();
+      const r = V.importar(data);
+      if (modo) modo.value = V.modo;
+      mensaje = `✔ Importados los tiempos de ${r.centros} centros.`;
+      renderEstado();
+    } catch (err) {
+      console.error(err);
+      mensaje = "⚠️ No se ha podido leer el fichero: no es un fichero de tiempos válido.";
+      renderEstado();
+    }
+  });
 
   btnBorrar?.addEventListener("click", () => {
     if (!confirm("¿Borrar el punto de partida y los tiempos guardados en este navegador?")) return;
