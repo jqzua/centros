@@ -74,7 +74,7 @@ class Etapa(NamedTuple):
 
     def to_macro(self):
         return MacroEtapa(
-            familia=e.familia,
+            familia=self.familia,
             txt=self.get_txt(),
             cuerpo=self.get_cuerpo()
         )
@@ -107,8 +107,8 @@ class Etapa(NamedTuple):
     def __get_cuerpo(self):
         # 0597 Maestros
 
-        # 0590 Secundaría Profesores
-        # 0511 Secundaría Catedráticos
+        # 0590 Secundaria Profesores
+        # 0511 Secundaria Catedráticos
 
         # 0591 FP a extinguir
         # 0598 FP sectores singulares
@@ -123,7 +123,7 @@ class Etapa(NamedTuple):
         # 0595 Artes practicas y diseño Profesores
 
         # 0596 Maestros de Taller de Artes Plásticas y Diseño
-        if self.familia == "Secundaría":
+        if self.familia == "Secundaria":
             return "0590 0511"
         if self.familia == "EOI":
             return "0592 0512"
@@ -164,7 +164,7 @@ def get_fp_family(etp: str):
 
 
 SECUNDARIA = Etapa(
-    familia="Secundaría",
+    familia="Secundaria",
     txt="ESO y/o Bachillerato"
 )
 MAGISTERIO = Etapa(
@@ -432,7 +432,7 @@ def get_etapa(abr: str, etp: str):
             if _re(r"\b(segundo|II|2[ºª])\b.*\bciclo\b"):
                 return MAGISTERIO.merge(txt="Infantil 2º ciclo")
             return MAGISTERIO.merge(txt="Infantil")
-        return MAGISTERIO.merge(txt="Primaría")
+        return MAGISTERIO.merge(txt="Primaria")
     m = _re(r'educación especial -> ([^>]+)', 1)
     if m:
         return Etapa(
@@ -462,12 +462,6 @@ def parse_etapa(e: Etapa):
 
     if e.familia == "Diseño":
         if e.txt in ("estilismo de indumentaria", "modelismo de indumentaria"):
-            yield e.merge(txt="artes aplicadas a la indumentaria")
-            return
-        if e.txt == "grabado y técnicas de estampación":
-            yield e.merge(txt="artes aplicadas al libro")
-            return
-        if e.txt == "estilismo de indumentaria":
             yield e.merge(txt="artes aplicadas a la indumentaria")
             return
         if e.txt == "grabado y técnicas de estampación":
@@ -512,17 +506,17 @@ with DBLite(ARG.db) as db:
             OK[x][etp].add(abr)
             CT[c].add(x)
 
-    all_etp = sorted(set([e for sub_list in CT.values() for e in sub_list]))
+    all_etp = sorted(set(e for sub_list in CT.values() for e in sub_list))
+    ID_ETP = {e: i for i, e in enumerate(all_etp)}
+    for e, _id_ in ID_ETP.items():
+        db.insert("MACRO_ETAPA", familia=e.familia, txt=e.txt, cuerpo=e.cuerpo, id=_id_)
     for c, etps in sorted(CT.items()):
-        for e in etps: #simplificar(etps):
-            _id_ = all_etp.index(e)
-            db.insert("MACRO_ETAPA", familia=e.familia, txt=e.txt, cuerpo=e.cuerpo, id=_id_, _or="ignore")
-            db.insert("MACRO_ETAPA_CENTRO", centro=c, etapa=_id_)
+        for e in etps:
+            db.insert("MACRO_ETAPA_CENTRO", centro=c, etapa=ID_ETP[e])
 
     for new_etp, abretp in sorted(OK.items()):
-        for etp, abrs in sorted(abretp.items()):
-            #print("  ", ",".join(sorted(abrs)), etp)
-            db.insert("MACRO_ETAPA_SUB", etapa=all_etp.index(new_etp), subetapa=etp, _or="ignore")
+        for etp in sorted(abretp.keys()):
+            db.insert("MACRO_ETAPA_SUB", etapa=ID_ETP[new_etp], subetapa=etp, _or="ignore")
 
     #print("")
     for abr, etp in sorted(KO):

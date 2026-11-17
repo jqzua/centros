@@ -31,7 +31,8 @@ const myweb = (() => {
 const _get = (s: string) => Array.from(document.querySelectorAll(s));
 
 const DB = new DBConcurso();
-const DST = new Map<number, number[]>();
+// centro -> distancia (redondeada) a la estación más cercana. null = aún no descargado
+let DST: Map<number, number> | null = null;
 
 const MSG_MAIL = Object.freeze({
   subject: "Consulta en relación al concurso de traslados",
@@ -48,6 +49,8 @@ class CentroManager {
   private _c: { [id: number]: Centro } = {};
   private _ok: number[] = [];
   private _ko: number[] = [];
+  private _okSet = new Set<number>();
+  private _koSet = new Set<number>();
   get all() {
     return Object.values(this._c);
   }
@@ -84,6 +87,8 @@ class CentroManager {
     this._ok = [];
     this._ko = [];
     this.all.forEach((c) => (fnc(c) ? this._ok : this._ko).push(c.id));
+    this._okSet = new Set(this._ok);
+    this._koSet = new Set(this._ko);
   }
   get(id: number) {
     const c = this._c[id];
@@ -122,11 +127,11 @@ class CentroManager {
         descartados.push(c);
         return;
       }
-      if (this.ok.includes(c.id)) {
+      if (this._okSet.has(c.id)) {
         shown.push(c);
         return;
       }
-      if (this.ko.includes(c.id)) {
+      if (this._koSet.has(c.id)) {
         hidden.push(c);
         return;
       }
@@ -171,11 +176,11 @@ function get_icon(c: Centro) {
     const marca = State.getState().getMarca(c.id);
     if (marca == State.SELECCIONADO) {
       if (color == "green")
-        return "http://maps.google.com/mapfiles/ms/micons/grn-pushpin.png";
-      return `http://maps.google.com/mapfiles/ms/micons/${color}-pushpin.png`;
+        return "https://maps.google.com/mapfiles/ms/micons/grn-pushpin.png";
+      return `https://maps.google.com/mapfiles/ms/micons/${color}-pushpin.png`;
     }
     if (especial)
-      return `http://maps.google.com/mapfiles/ms/micons/${color}-dot.png`;
+      return `https://maps.google.com/mapfiles/ms/micons/${color}-dot.png`;
     return `https://maps.google.com/mapfiles/ms/micons/${color}.png`;
   })();
   return {
@@ -203,13 +208,17 @@ export function dwnConcurso() {
 }
 
 function updateCentros(centrar: boolean|undefined) {
-  if (DST.size==0) {
+  if (DST == null) {
     const km = getVal("#kms");
     if (typeof km == "string" && !isNaN(parseFloat(km))) {
-      fetch(myweb+"/distancias.json").then(r => r.json()).then((data:{[id:string]:number[]})=>{
-        Object.entries(data).forEach(([k, v])=>DST.set(Number(k), v));
-        updateCentros(centrar);
-      })
+      fetch(myweb+"/distancias.json").then(r => r.json()).then((data:{[km:string]:number[]})=>{
+        const dst = new Map<number, number>();
+        Object.entries(data).forEach(([k, ids])=>ids.forEach(id=>dst.set(id, Number(k))));
+        DST = dst;
+      }).catch((e) => {
+        console.error("distancias.json", e);
+        DST = new Map();
+      }).finally(() => updateCentros(centrar));
       return;
     }
   }
@@ -394,7 +403,9 @@ function getPopUp(c: Centro) {
     const o =document.querySelector("#jornada option[value='"+c.jornada+"']");
     if (o != null) tags.push(o.textContent?.trim())
   }
-  if (c.fpdual) tags.push("FP Dual");
+  if (c.secundaria) tags.push("ESO/Bach.");
+  if (c.fp) tags.push(c.fpdual ? "FP (con FP Dual)" : "FP");
+  else if (c.fpdual) tags.push("FP Dual");
   if (tags.length) {
     body.push("\n" + tags.join(", "));
   }
@@ -502,6 +513,20 @@ function mk_filter() {
   const transporte = st.kms.get();
   const invertir = st.invertir.get();
   const accesibilidad = st.accesibilidad.getSplit(",");
+  const ensenanza = st.ensenanza.get();
+  const isEnsenanzaOk = (c: Centro) => {
+    switch (ensenanza) {
+      case null: return true;
+      case "sec": return c.secundaria;
+      case "fp": return c.fp;
+      case "ambas": return c.secundaria && c.fp;
+      case "solo-sec": return c.secundaria && !c.fp;
+      case "solo-fp": return c.fp && !c.secundaria;
+      case "alguna": return c.secundaria || c.fp;
+      case "ninguna": return !c.secundaria && !c.fp;
+    }
+    return true;
+  };
   const _isOk = (c: Centro) => {
     let i;
     if (!ok_tipo.includes(c.tp.id)) return false;
@@ -517,12 +542,14 @@ function mk_filter() {
     if (st.dificultad.get() === false &&c.dificultad) return false;
     if (jornada != null && c.jornada!=jornada) return false;
     if (etapa != null && !c.hasEtapa(etapa)) return false;
+    if (!isEnsenanzaOk(c)) return false;
     if (fpdual != null){
       if (fpdual == "con" && c.fpdual == false) return false;
       if (fpdual == "sin" && c.fpdual == true) return false;
     }
-    if (transporte != null) {
-      for (const [km, ids] of DST) if (km>transporte && ids.includes(c.id)) return false;
+    if (transporte != null && DST != null) {
+      const d = DST.get(c.id);
+      if (d != null && d > transporte) return false;
     }
     return true;
   };
@@ -604,7 +631,7 @@ function updateList() {
     if (h2==null || h2.tagName!="H2") return;
     const small = h2.querySelector("small");
     if (small!=null) small.textContent=`(${count})`;
-    else h2.innerHTML = h2.innerHTML+=` <small>(${count})</small>`;
+    else h2.insertAdjacentHTML("beforeend", ` <small>(${count})</small>`);
   })
   /*
   set_html("#cSel,#cShw,#cHdn,#cDsc").each(function () {

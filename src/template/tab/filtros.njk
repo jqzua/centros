@@ -54,6 +54,26 @@
       <strong>⚠️ ¡OJO!</strong> Función experimental, puede inducir a error. Leer el <a href="%VITE_GITHUB%/issues/7" target="_blank">issue #7</a> antes de usar.
     </p>
   </fieldset>
+  {% if concurso.showEnsenanza %}
+  <fieldset>
+    <legend>ESO/Bachillerato y FP</legend>
+    <select id="ensenanza" style="width: 100%;" data-label="ESO/Bachillerato y FP: ">
+      <option value="">Cualquiera</option>
+      <option value="sec">Con ESO y/o Bachillerato</option>
+      <option value="fp">Con FP</option>
+      <option value="ambas">Con ESO/Bachillerato y FP</option>
+      <option value="solo-sec">Solo ESO/Bachillerato (sin FP)</option>
+      <option value="solo-fp">Solo FP (sin ESO/Bachillerato)</option>
+      <option value="alguna">Con ESO/Bachillerato o FP</option>
+      <option value="ninguna">Sin ESO/Bachillerato ni FP</option>
+    </select>
+    <p style="margin-bottom: 0;">
+      {{ concurso.secundaria.length }} centros con ESO/Bachillerato y {{ concurso.fp.length }} con FP.
+      Se basa en las etapas educativas y el alumnado publicados en el buscador de centros, ver el
+      <a href="%VITE_GITHUB%/issues/7" target="_blank">issue #7</a>.
+    </p>
+  </fieldset>
+  {% endif %}
   <fieldset>
     <legend>Accesibilidad</legend>
     <select id="accesibilidad" style="width: 100%;" data-label="Accesibilidad: ">

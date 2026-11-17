@@ -14,6 +14,27 @@ function get_flag(obj: any, id: number) {
   return a;
 }
 
+// Familias de macro_etapa que identifican ESO/Bachillerato y FP
+// ("Secundaría" es la grafía antigua, se mantiene por compatibilidad con BDs ya desplegadas)
+const FAMILIA_SECUNDARIA = ["Secundaria", "Secundaría"];
+const FAMILIA_FP = ["FP"];
+const ALUMNADO_SECUNDARIA = /^(ESO|Bachillerato)$/i;
+const ALUMNADO_FP = /^FP\b/i;
+
+export type Ensenanza = "sec" | "fp";
+
+function invert(obj: {[k: string|number]: number[]}) {
+  const m = new Map<number, string[]>();
+  Object.entries(obj).forEach(([k, ids]) => {
+    ids.forEach(id => {
+      const arr = m.get(id);
+      if (arr == null) m.set(id, [k]);
+      else arr.push(k);
+    });
+  });
+  return m;
+}
+
 function filter(arr: any[], func: Function) {
   const ok: any[] = [];
   const ko: any[] = [];
@@ -33,19 +54,15 @@ class DBConcurso extends DataBase {
       if (c1.tipo != c2.tipo) return -c1.tipo.localeCompare(c2.tipo);
       return c1.txt.localeCompare(c2.txt);
     });
-    const obj: Concurso[] = [];
-    for (let i = 0; i < cpn.length; i++) {
-      obj.push((await this.get_concurso(cpn[i])));
-    }
-    return obj
+    return await Promise.all(cpn.map(c => this.get_concurso(c)));
   }
   async get_concurso(c: string|Tables<"concurso">) {
     if (typeof c == "string") c=await this.get_one("concurso", c);
-    const anx = this.get_data(
-      `anexo[concurso=${c.id}]`,
-      await this.from("concurso_anexo").select().eq("concurso", c.id)
-    );
-    const centros = (await this.get_concurso_centros(c.id, false))
+    const [anx_rs, centros] = await Promise.all([
+      this.from("concurso_anexo").select().eq("concurso", c.id),
+      this.get_concurso_centros(c.id, false)
+    ]);
+    const anx = this.get_data(`anexo[concurso=${c.id}]`, anx_rs);
     const id_etapas = Array.from(new Set(centros.flatMap(c=>c.etapas)));
     const etapas = this.get_data(
       `macro_etapa[${c.id}]`,
@@ -59,29 +76,56 @@ class DBConcurso extends DataBase {
     );
   }
   async get_concurso_centros(id: string, with_latlon: boolean = true) {
-    id = id.replace("-", "_");
-    const cetrs = await this._get_concurso_centros(id, with_latlon);
-    const tipos = await this.get_dict('tipo', ...Array.from(new Set(cetrs.map(c=>c.tipo))));
-    const query = await this._get_concurso_query(id);
-    const etapas = await this._get_concurso_etapas(id);
-    const alumnado = await this._get_alumnado(id);
-    const _isS = (obj:{[id:string]:number[]}, id:number) => Object.entries(obj).flatMap(([k, v])=>v.includes(id)?k:[]);
-    const _isN = (obj:{[id:number]:number[]}, id:number) => Object.entries(obj).flatMap(([k, v])=>v.includes(id)?parseInt(k):[]);
+    id = id.replace(/-/g, "_");
+    // Todas las consultas son independientes: se lanzan en paralelo
+    const [cetrs, tipos, query, etapas, alumnado, familias] = await Promise.all([
+      this._get_concurso_centros(id, with_latlon),
+      this.get_dict('tipo'),
+      this._get_concurso_query(id),
+      this._get_concurso_etapas(id),
+      this._get_alumnado(id),
+      this._get_familias_etapa(),
+    ]);
+    // Índices centro -> valores, para no recorrer todas las listas por cada centro
+    const queryByCentro = invert(query);
+    const etapasByCentro = invert(etapas);
     return cetrs.map(c=>{
       const t = tipos.get(c.tipo)!;
-      const q = _isS(query, c.id);
-      const e = _isN(etapas, c.id);
+      const q = [...(queryByCentro.get(c.id)??[])];
+      const e = (etapasByCentro.get(c.id)??[]).map(Number);
       const a = get_flag(centro_accesib, c.id);
       const al = alumnado[c.id]??[];
       if (['+', '-', 'p',].includes(a)) q.push("githubAccesible="+a);
+      const ens = new Set<Ensenanza>();
+      e.forEach(i => {
+        const f = familias.get(i);
+        if (f != null) ens.add(f);
+      });
+      al.forEach(x => {
+        if (ALUMNADO_SECUNDARIA.test(x.etapa)) ens.add("sec");
+        if (ALUMNADO_FP.test(x.etapa)) ens.add("fp");
+      });
       return new Centro(
         c,
         t,
         q,
         e,
-        al
+        al,
+        ens
       );
     }) as Centro[]
+  }
+
+  private async _get_familias_etapa() {
+    const m = new Map<number, Ensenanza>();
+    this.get_data(
+      `macro_etapa[familia=sec|fp]`,
+      await this.from('macro_etapa').select('id, familia').in('familia', [...FAMILIA_SECUNDARIA, ...FAMILIA_FP])
+    ).forEach(e => {
+      if (FAMILIA_SECUNDARIA.includes(e.familia)) m.set(e.id, "sec");
+      else if (FAMILIA_FP.includes(e.familia)) m.set(e.id, "fp");
+    });
+    return m;
   }
 
   private async _get_concurso_centros(id: string, with_latlon: boolean = true) {
@@ -166,6 +210,8 @@ class Concurso {
   public readonly frances: readonly number[];
   public readonly aleman: readonly number[];
   public readonly jornadas: readonly string[];
+  public readonly secundaria: readonly number[];
+  public readonly fp: readonly number[];
   public readonly etapas: readonly Tables<"macro_etapa">[];
   //public readonly accesible: readonly number[];
 
@@ -182,14 +228,9 @@ class Concurso {
     this.centros = Object.freeze(ok as Centro[]);
     this.desubicados = Object.freeze(ko as Centro[]);
     this.tipos = Object.freeze((()=>{
-      const tipos:Tables<'tipo'>[] = [];
-      const ids:string[] = [];
-      this.centros.forEach(c=>{
-        if (ids.includes(c.tp.id)) return;
-        ids.push(c.tp.id);
-        tipos.push(c.tp);
-      })
-      return tipos.sort((a, b)=>a.txt.localeCompare(b.txt));
+      const tipos = new Map<string, Tables<'tipo'>>();
+      this.centros.forEach(c=>tipos.set(c.tp.id, c.tp));
+      return Array.from(tipos.values()).sort((a, b)=>a.txt.localeCompare(b.txt));
     })());
     const _gids = (fnc: (c:Centro)=>boolean) => Object.freeze(this.centros.filter(fnc).map(c=>c.id));
     this.nocturos = _gids(c=>c.nocturno);
@@ -199,6 +240,8 @@ class Concurso {
     this.ingles = _gids(c=>c.ingles);
     this.frances = _gids(c=>c.frances);
     this.aleman = _gids(c=>c.aleman);
+    this.secundaria = _gids(c=>c.secundaria);
+    this.fp = _gids(c=>c.fp);
     //this.accesible = _gids(c=>c.accesible !== null);
     this.jornadas = Object.freeze(Array.from(new Set(this.centros.flatMap(c=>c.jornada.length?c.jornada:[]))).sort());
   }
@@ -216,6 +259,15 @@ class Concurso {
       })
     })
     return Object.freeze(obj);
+  }
+
+  /** Mostrar el filtro ESO/Bachillerato vs FP */
+  get showEnsenanza() {
+    // Solo tiene sentido para los cuerpos de secundaria y FP
+    const cuerpos = (this.cuerpo??"").split(/\s+/);
+    if (!["0590", "0511", "0591", "0598"].some(c => cuerpos.includes(c))) return false;
+    const n = this.centros.length;
+    return this.fp.length > 0 && this.secundaria.length > 0 && (this.fp.length < n || this.secundaria.length < n);
   }
 
   get showFP() {
@@ -285,18 +337,25 @@ class Centro {
   readonly queries: readonly string[];
   readonly etapas: readonly number[];
   readonly alumnado: readonly AlumnadoEtapa[];
+  private readonly _queries: ReadonlySet<string>;
+  private readonly _etapas: ReadonlySet<number>;
+  private readonly _ensenanzas: ReadonlySet<Ensenanza>;
 
   constructor(
     centro: Tables<"centro">,
     tipo: Tables<"tipo">,
     queries: string[],
     etapas: number[],
-    alumnado: AlumnadoEtapa[]
+    alumnado: AlumnadoEtapa[],
+    ensenanzas: Set<Ensenanza> = new Set()
   ) {
     this._c = centro;
     this._t = tipo;
     this.queries = Object.freeze(queries);
     this.etapas = Object.freeze(etapas);
+    this._queries = new Set(queries);
+    this._etapas = new Set(etapas);
+    this._ensenanzas = ensenanzas;
     this.alumnado = Object.freeze(alumnado.sort((a, b) => b.alumnado - a.alumnado));
   }
 
@@ -321,7 +380,7 @@ class Centro {
   }
 
   hasEtapa(s: number) {
-    return this.etapas.includes(s);
+    return this._etapas.has(s);
   }
 
   get latlon(): readonly [number, number] {
@@ -375,8 +434,7 @@ class Centro {
   }
 
   isQuery(...qrs:string[]) {
-    for (let i=0; i<qrs.length; i++) if (this.queries.includes(qrs[i])) return true;
-    return false;
+    return qrs.some(q => this._queries.has(q));
   }
 
   get accesible() {
@@ -426,8 +484,22 @@ class Centro {
   get fpdual() {
     return this.isQuery("itRegimenDual=5");
   }
+  /** Imparte ESO y/o Bachillerato */
+  get secundaria() {
+    return this._ensenanzas.has("sec");
+  }
+  /** Imparte Formación Profesional */
+  get fp() {
+    return this._ensenanzas.has("fp");
+  }
+  get ensenanzas(): string[] {
+    const arr = [];
+    if (this.secundaria) arr.push("ESO/Bachillerato");
+    if (this.fp) arr.push("FP");
+    return arr;
+  }
   get emails() {
-    return (this._c.email??'').trim().split(/\s+/);
+    return splitNotEmpty(this._c.email);
   }
 
   get idiomas(): string[] {
@@ -439,7 +511,7 @@ class Centro {
   }
 
   get telefonos(): string[] {
-    return (this._c.telefono??'').trim().split(/\s+/);
+    return splitNotEmpty(this._c.telefono);
   }
 
   get nombre(): string {
@@ -453,6 +525,12 @@ class Centro {
   getAttribute<K extends keyof Centro>(attributeName: K): Centro[K] {
     return this[attributeName];
   }
+}
+
+function splitNotEmpty(s: string | null | undefined) {
+  const t = (s ?? '').trim();
+  if (t.length == 0) return [];
+  return t.split(/\s+/);
 }
 
 function parseName(c: Tables<"centro">, tp: Tables<"tipo">) {
@@ -509,8 +587,7 @@ function parseName(c: Tables<"centro">, tp: Tables<"tipo">) {
       nom = "Madrid";
     }
     nom = smart_title(nom);
-    nom = nom.replace(/\bS\./i, "S.");
-    nom = nom.replace(/\bS\./i, "S.");
+    nom = nom.replace(/\bS\./gi, "S.");
     nom = nom.replace(/\bS\.mart/i, "S. Mart");
     return nom;
 }

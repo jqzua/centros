@@ -15,6 +15,7 @@ export class State {
     public readonly accesibilidad = new SelectString("#accesibilidad", null, 'acc');
     public readonly etapa = new SelectNumber("#etapa", null, 'e');
     public readonly fpdual = new SelectString("#fpdual", null, 'fp');
+    public readonly ensenanza = new SelectString("#ensenanza", null, 'en');
     public readonly nocturno = new InputBoolean("#nocturno", true, 'noc');
     public readonly dificultad = new InputBoolean("#dificultad", true, 'dif');
     public readonly excelencia = new InputBoolean("#excelencia", true, 'exc');
@@ -100,7 +101,8 @@ export class State {
             this.jornada,
             this.etapa,
             this.kms,
-            this.fpdual
+            this.fpdual,
+            this.ensenanza
         ].forEach((i) => {
             const v = qr.get(i.qr);
             if(v!=null) return i.set(v);
@@ -160,7 +162,8 @@ export class State {
             this.jornada,
             this.etapa,
             this.kms,
-            this.fpdual
+            this.fpdual,
+            this.ensenanza
         ].forEach((i) => {
             const v = i.get()
             if(v!=null) return qr.push(`${i.qr}=${v}`);
@@ -224,7 +227,8 @@ export class State {
             ...this.idioma.node,
             this.accesibilidad.node,
             this.invertir.node,
-            this.fpdual.node
+            this.fpdual.node,
+            this.ensenanza.node
         ]
     }
     getInputsTransporte() {
