@@ -1,99 +1,58 @@
-<h1 class="sidebar-header">
-  Información
-  <span class="sidebar-close"><i class="fa fa-caret-left"></i></span>
-</h1>
+{% import "macros.njk" as m %}
+{{ m.header("Información") }}
 <div class="content">
-  <h2>Leyenda</h2>
-  <p>Se han usado los siguientes iconos para dar información extra:</p>
-  <ul class="leyenda">
-    <li class="liimg">
-      <img alt="red" src="https://maps.google.com/mapfiles/ms/micons/red.png" />
-      <span>Centro de especial dificultad</span>
-    </li>
-    <li class="liimg">
-      <img
-        alt="blue"
-        src="https://maps.google.com/mapfiles/ms/micons/blue.png"
-      />
-      <span>Centro con turnos nocturnos</span>
-    </li>
-    <li class="liimg">
-      <img
-        alt="green"
-        src="https://maps.google.com/mapfiles/ms/micons/green.png"
-      />
-      <span>Color por defecto</span>
-    </li>
-    <li>
-      Los mismos iconos pero con un punto negro en el centro cuando además se
-      da alguna característica especial como bilingüismo, excelencia o
-      innovación tecnológica
-    </li>
-    <li class="liimg">
-      <img
-        alt="green"
-        src="http://maps.google.com/mapfiles/ms/micons/grn-pushpin.png"
-      />
-      Cada icono de un centro es sustituido por una chincheta cuando marca como
-      seleccionado, y por un circulo pequeño cuando se marca como descartado
-    </li>
-  </ul>
-  <h2>Objetivo</h2>
-  <p>
-    El objetivo de este mapa es ayudar a elegir destino en el <strong>{{concurso.tipo}}</strong> de
-    traslados <a href="{{ concurso.url }}">{{concurso.convocatoria}} {{ concurso.txt }}</a>
-    a los funcionarios de carrera {% if concurso.tipo=='concursillo' %}o interinos {%endif%}{% if ' ' in concurso.cuerpo %}de
-    los cuerpos{%else%}del cuerpo{%endif%}
+  <p class="text-slate-600">
+    Mapa para ayudar a elegir destino en el <strong>{{concurso.tipo}}</strong>
+    <a href="{{ concurso.url }}">{{concurso.convocatoria}} {{ concurso.txt }}</a>
+    a los funcionarios de carrera{% if concurso.tipo=='concursillo' %} o interinos{%endif%}
+    {% if ' ' in concurso.cuerpo %}de los cuerpos{%else%}del cuerpo{%endif%}
     {{ concurso.cuerpo | yjoin }} en la Comunidad de Madrid.
   </p>
+
+  <h2>Leyenda</h2>
+  <ul class="leyenda">
+    <li><img alt="" src="{{ pin('green', false, false) }}"/><span>Centro</span></li>
+    <li><img alt="" src="{{ pin('red', false, false) }}"/><span>Centro de especial dificultad</span></li>
+    <li><img alt="" src="{{ pin('blue', false, false) }}"/><span>Centro con turno nocturno</span></li>
+    <li><img alt="" src="{{ pin('green', true, false) }}"/><span>Con alguna característica especial: bilingüe, excelencia o innovación tecnológica</span></li>
+    <li><img alt="" src="{{ pin('green', false, true) }}"/><span>Centro seleccionado (está en tus peticiones)</span></li>
+    <li><span class="flex h-7 w-6 shrink-0 items-center justify-center"><span class="h-3 w-3 rounded-full border border-slate-900 bg-emerald-600"></span></span><span>Centro descartado</span></li>
+    <li><span class="casa-icon h-6 w-6 shrink-0">{{ icon("casa") }}</span><span>Tu punto de partida para el tiempo de viaje</span></li>
+  </ul>
+
+  <h2>Cómo usarlo</h2>
+  <ol>
+    <li>Ajusta en {{ icon("filtros", "h-3.5 w-3.5 align-[-2px]") }} <b>Filtros</b> qué centros quieres ver.</li>
+    <li>Calcula en {{ icon("casa", "h-3.5 w-3.5 align-[-2px]") }} <b>Tiempo de viaje</b> lo que tardas desde casa.</li>
+    <li>Pincha en los centros para marcarlos como seleccionados o descartados, o añade su localidad, distrito o DAT.</li>
+    <li>Ordena tus peticiones en {{ icon("lista", "h-3.5 w-3.5 align-[-2px]") }} <b>Tu lista</b> y descárgalas en {{ icon("descarga", "h-3.5 w-3.5 align-[-2px]") }} <b>Descargas</b>.</li>
+  </ol>
+  <p class="muted">Todo lo que haces se guarda en la dirección de la página (salvo tu punto de partida): guárdala en marcadores para volver a ella o compartirla.</p>
+
   <h2>Fuentes</h2>
-  <p>Para ello se han usado las siguientes fuentes:</p>
-  <ol class="anx">
-    <li>
-      {{concurso.tipo|toTitle}} <a href="{{ concurso.url }}">{{concurso.convocatoria}} {{ concurso.txt }}</a>
-    </li>
+  <ol class="space-y-1.5">
+    <li class="flex gap-2"><span class="chip shrink-0">Conv.</span><a href="{{ concurso.url }}">{{concurso.tipo|toTitle}} {{concurso.convocatoria}} {{ concurso.txt }}</a></li>
     {% for a in concurso.anexos %}
-    <li value="{{ a.anexo }}">
-      {% if a.anexo <= 0 %}{%else%}
-      <abbr title="Anexo">An</abbr>
-      <code class="anx">{%if a.anexo<10%} {%endif%}{{ a.anexo }}</code>
-      {%endif%}
+    <li class="flex gap-2">
+      <span class="chip shrink-0 font-mono">{% if a.anexo > 0 %}An {{ a.anexo }}{% else %}Doc{% endif %}</span>
       <a href="{{ a.url }}">{{ a.txt }}</a>
     </li>
     {% endfor %}
-    <li><a href="https://gestiona.comunidad.madrid/wpad_pub/run/j/MostrarConsultaGeneral.icm">Buscador de centros</a></li>
+    <li class="flex gap-2"><span class="chip shrink-0">Web</span><a href="https://gestiona.comunidad.madrid/wpad_pub/run/j/MostrarConsultaGeneral.icm">Buscador de centros</a></li>
   </ol>
+
   {% if concurso.desubicados.length > 0 %}
-  <p>
-    <strong>¡AVISO!</strong> Los siguientes centros no aparecen en el mapa
-    porque no se ha podido calcular sus coordenadas geográficas:
-  </p>
+  <h2>Centros sin ubicar</h2>
+  <p>Estos centros no aparecen en el mapa porque no se han podido calcular sus coordenadas:</p>
   <ul>
     {% for x in concurso.desubicados %}
-    <li>
-      <a href="%VITE_FICHA%{{ x.id }}">{{ x.id }} {{ x.abr_nombre | safe }}</a>
-    </li>
+    <li><a href="%VITE_FICHA%{{ x.id }}">{{ x.id }} {{ x.abr_nombre | safe }}</a></li>
     {% endfor %}
   </ul>
-  <p>
-    Si sabes donde estan escribe a
-    <a
-      href="{{mail.desubicados}}"
-    >
-      %VITE_EMAIL%</a
-    >
-  </p>
+  <p>Si sabes dónde están, escribe a <a href="{{mail.desubicados}}">%VITE_EMAIL%</a>.</p>
   {% endif %}
-  <h2>Soporte</h2>
-  <p>
-    Esta página ha sido validada desde un ordenador con
-    <a href="https://www.mozilla.org/es-ES/firefox/new/">Firefox</a>,
-    <a href="https://www.chromium.org/getting-involved/download-chromium"
-      >Chromium</a
-    >
-    y Chrome. No se garantiza que funcione al 100% desde otros dispositivos
-    (moviles, tablets, etc) u otros exploradores (Internet Explorer, Microsoft
-    Edge, Opera, Safari, etc).
-  </p>
+
+  <h2>Compatibilidad</h2>
+  <p class="muted">Probada en Firefox, Chromium y Chrome de escritorio. Puede no funcionar al 100 % en otros navegadores o en móviles.</p>
   {% include "tab/donar.njk" %}
 </div>

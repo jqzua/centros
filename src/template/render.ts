@@ -7,6 +7,8 @@ import { Mail, get_distance, yJoin, toTitle } from "../lib/util";
 import transporte from "../assets/transporte/transporte.json";
 import estaciones from "../assets/transporte/estaciones.json";
 import type { Tables } from "../lib/database.types";
+import { MAX_PETICIONES } from "../lib/peticiones";
+import { icon, pinUrl } from "../lib/icons";
 
 const DB = new DBConcurso();
 
@@ -14,6 +16,8 @@ const env = nunjucks.configure('src/template', { autoescape: true });
 env.addFilter('yjoin', yJoin);
 env.addFilter('toTitle', toTitle);
 env.addFilter('odd_even', (i)=>i%2==0?"even":"odd");
+env.addGlobal('icon', (name: string, cls?: string) => new nunjucks.runtime.SafeString(icon(name, cls)));
+env.addGlobal('pin', pinUrl);
 
 function save(destination: string, content: string|object) {
     const dir = dirname(destination);
@@ -128,6 +132,7 @@ async function do_render(env: Record<string, string>) {
             `${c.id}/index.html`,
             {
                 concurso: c,
+                max_peticiones: MAX_PETICIONES,
                 jornadas: jornadas,
                 distancia: {
                     min: min,

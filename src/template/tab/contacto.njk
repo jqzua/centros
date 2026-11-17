@@ -1,50 +1,14 @@
-<h1 class="sidebar-header">
-  Contacto<span class="sidebar-close"><i class="fa fa-caret-left"></i></span>
-</h1>
+{% import "macros.njk" as m %}
+{{ m.header("Contacto") }}
 <div class="content">
-  <p>
-    <svg
-      aria-hidden="true"
-      class="octicon octicon-law license-summary-octicon float-left mr-2"
-      height="32"
-      version="1.1"
-      viewBox="0 0 14 16"
-      width="28"
-    >
-      <path
-        d="M7 4c-.83 0-1.5-.67-1.5-1.5S6.17 1 7 1s1.5.67 1.5 1.5S7.83 4 7 4zm7 6c0 1.11-.89 2-2 2h-1c-1.11 0-2-.89-2-2l2-4h-1c-.55 0-1-.45-1-1H8v8c.42 0 1 .45 1 1h1c.42 0 1 .45 1 1H3c0-.55.58-1 1-1h1c0-.55.58-1 1-1h.03L6 5H5c0 .55-.45 1-1 1H3l2 4c0 1.11-.89 2-2 2H2c-1.11 0-2-.89-2-2l2-4H1V5h3c0-.55.45-1 1-1h4c.55 0 1 .45 1 1h3v1h-1l2 4zM2.5 7L1 10h3L2.5 7zM13 10l-1.5-3-1.5 3h3z"
-        fill-rule="evenodd"
-      ></path>
-    </svg>
-    Esta obra esta bajo una licencia
-    <a href="%VITE_GITHUB%/blob/master/LICENSE"
-      >GNU General Public License v3.0</a
-    >, por lo tanto eres libre de hacer cualquier modificación o mejora.
-  </p>
-  <p>
-    Si quieres que tus mejoras, sugerencias o correciones sean incluidas lo
-    mejor es que me hagas un <code>pull Requests</code>, o des de alta un
-    <code>issue</code>, en
-    <a href="%VITE_GITHUB%">github</a>; pero si eso
-    te suena a chino puedes simplemente contactame via mail en
-    <a href="mailto:%VITE_EMAIL%">%VITE_EMAIL%</a>.
-  </p>
-  <p>
-    Por otro lado, si tienes conocimientos de programación y quieres colaborar
-    pero no se te ocurre como, echale un vistazo a los
-    <a href="%VITE_GITHUB%/issues">issues abiertos</a
-    >, especialmente a aquellos que estan etiquetados como
-    <code>help wanted</code>.
-  </p>
+  <div class="card mt-1 space-y-3 p-4">
+    <p class="flex gap-2">{{ icon("licencia", "h-5 w-5 text-slate-400") }}<span>Esta obra está bajo licencia <a href="%VITE_GITHUB%/blob/master/LICENSE">GNU GPL v3.0</a>: eres libre de modificarla y mejorarla.</span></p>
+    <p class="flex gap-2">{{ icon("github", "h-5 w-5 text-slate-400") }}<span>Para proponer mejoras o correcciones abre un <code>issue</code> o un <code>pull request</code> en <a href="%VITE_GITHUB%">GitHub</a>, o escribe a <a href="mailto:%VITE_EMAIL%">%VITE_EMAIL%</a>.</span></p>
+    <p class="flex gap-2">{{ icon("idea", "h-5 w-5 text-slate-400") }}<span>Si sabes programar y quieres colaborar, mira los <a href="%VITE_GITHUB%/issues">issues abiertos</a>, sobre todo los marcados como <code>help wanted</code>.</span></p>
+  </div>
   <h2>Donaciones</h2>
-  <p>
-    Por favor, si te ha resultado útil esta página considera realizar un
-    donativo para mantenerla actualizada.
-  </p>
-  <p>
-    <a href="%VITE_DONAR%" style="text-decoration: none;">
-      <img src="https://www.paypalobjects.com/es_ES/ES/i/btn/btn_donateCC_LG.gif"/>
-    </a>
-  </p>
-  <p>Cualquier cantidad es buena 🙂</p>
+  <div class="card p-4">
+    <p>Si te ha resultado útil, considera hacer un donativo para mantenerla actualizada. Cualquier cantidad ayuda 🙂</p>
+    <a href="%VITE_DONAR%" class="btn btn-primary mt-3 w-full">{{ icon("corazon") }} Donar con PayPal</a>
+  </div>
 </div>

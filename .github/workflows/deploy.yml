@@ -20,20 +20,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out this repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - name: Autoclean
-        run: |
-          sudo apt clean -y 
-          sudo apt autoclean -y 
-          sudo apt autoremove -y
-          sudo apt update
-          sudo apt install --fix-missing
       - name: Install dependencies
-        run: sudo apt install -y pgloader sqlite3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pgloader sqlite3
       - name: GET DB
         run: ./db/get_db.sh
       - name: Etapas
@@ -62,7 +57,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: 'npm'
@@ -73,8 +68,15 @@ jobs:
         with:
           name: db.sqlite
           path: ./public/
+      - name: Códigos de localidad/distrito
+        continue-on-error: true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+          cd py
+          python3 localidades.py --db ../public/db.sqlite
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Build
         run: npm run build
       - name: Setup Pages

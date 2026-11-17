@@ -1,105 +1,51 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
-    <title>Concurso de traslados</title>
+    <title>Agrupación de etapas · Concurso de traslados</title>
     {% include "head.njk" %}
-    <style>
-      body {
-        font-family: DejaVu Sans, Arial, Sans Serif;
-        font-size: 0.75em;
-      }
-      table {
-        margin-top: 14px;
-        border-spacing: 0px;
-        border-collapse: collapse;
-        width: 100%;
-      }
-      thead > tr > th:first-child {
-        width: 0px;
-      }
-      td,
-      th {
-        border: 1px solid black;
-        padding-left: 5px;
-        padding-right: 5px;
-      }
-      table tbody tr:nth-child(even) {
-        background-color: #ddd;
-      }
-      td > p,
-      th > p {
-        margin-top: 7px;
-        margin-bottom: 7px;
-      }
-      td > p:first-child,
-      th > p:first-child {
-        margin-top: 0;
-      }
-      td > p:last-child,
-      td > p:last-child {
-        margin-bottom: 0;
-      }
-      td,
-      th {
-        vertical-align: top;
-      }
-      .etapa,
-      .cuerpo {
-        background-color: lightblue;
-        text-align: left;
-      }
-    </style>
   </head>
-  <body>
-    <main>
-      <p>
-        Para crear el selector de etapas educativas se ha utilizado la
-        estrategia descrita en el
-        <a href="%VITE_GITHUB%/issues/7" target="_blank">issue #7</a>. Para
-        facilitar el entendimiento y la depuración de dicha estrategia, a
-        continuación se lista la correspondencia entre las <em>etapas macro</em>
-        y el desglose de las etapas a las que equivalen tal como aparecen en
-        <a
-          href="https://gestiona.comunidad.madrid/wpad_pub/run/j/MostrarConsultaGeneral.icm"
-          target="_blank"
-          >el buscador de centros</a
-        >.
-      </p>
-      <h1>Agrupación de etapas educativas</h1>
-      <table>
-        <thead>
-          <tr>
-            <th>Cuerpos</th>
-            <th>Etapa</th>
-          </tr>
-        </thead>
-        {% for e in etapas %} {% if e.id != -1 %}
-        <tbody>
-          <tr class="{{ loop.index | odd_even }}">
-            <td rowspan="{{ (sub.get(e.id) | length) + 1 }}" class="cuerpo">
-              {% if e.cuerpo %} {{e.cuerpo | replace(" ", "<br />") | safe }} {%
-              else %} ¿Cualquiera? ¿Tu lo sabes? Dímelo en el
-              <a href="%VITE_GITHUB%/issues/7" target="_blank">issue #7</a>{%
-              endif %}
-            </td>
-            <th class="etapa">
-              {{ e.familia }}: <strong>{{ e.txt }}</strong>
-            </th>
-          </tr>
+  <body class="min-h-screen">
+    {% include "banner.njk" %}
+    <header class="border-b border-slate-200 bg-white">
+      <div class="mx-auto max-w-5xl px-4 py-6">
+        <a href=".." target="_self" class="inline-flex items-center gap-1 text-sm text-slate-500">{{ icon("atras", "h-3.5 w-3.5") }} Concursos</a>
+        <h1 class="mt-2 text-2xl font-bold tracking-tight text-slate-900">Agrupación de etapas educativas</h1>
+        <p class="mt-2 max-w-3xl text-slate-600">
+          El selector de etapas educativas sigue la estrategia descrita en el
+          <a href="%VITE_GITHUB%/issues/7">issue #7</a>. Para facilitar su revisión,
+          aquí está la correspondencia entre cada <em>etapa macro</em> y las etapas tal
+          como aparecen en <a href="https://gestiona.comunidad.madrid/wpad_pub/run/j/MostrarConsultaGeneral.icm">el buscador de centros</a>.
+        </p>
+      </div>
+    </header>
+    <main class="mx-auto max-w-5xl space-y-4 px-4 py-8">
+      {% for e in etapas %}{% if e.id != -1 %}
+      <section class="card overflow-hidden">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
+          <h2 class="font-semibold text-slate-900"><span class="font-normal text-slate-500">{{ e.familia }}:</span> {{ e.txt }}</h2>
+          <div class="flex flex-wrap gap-1">
+            {% if e.cuerpo %}
+              {% for cp in e.cuerpo.split(" ") %}<span class="chip font-mono">{{ cp }}</span>{% endfor %}
+            {% else %}
+              <span class="chip chip-amber">¿Qué cuerpos? <a class="ml-1" href="%VITE_GITHUB%/issues/7">Ayuda en el issue #7</a></span>
+            {% endif %}
+          </div>
+        </div>
+        <ul class="divide-y divide-slate-100 text-sm">
           {% for s in sub.get(e.id) %}
-          <tr>
-            <td>{{ s.subetapa }}</td>
-          </tr>
+          <li class="px-4 py-1.5 text-slate-600">{{ s.subetapa }}</li>
           {% endfor %}
-        </tbody>
-        {% endif %} {% endfor %}
-      </table>
-      <h1>Etapas no usadas</h1>
-      <ul>
-        {% for s in sub.get(-1) %}
-        <li>{{ s.subetapa }}</li>
-        {% endfor %}
-      </ul>
+        </ul>
+      </section>
+      {% endif %}{% endfor %}
+      <section class="card p-4">
+        <h2 class="mb-2 font-semibold text-slate-900">Etapas no usadas</h2>
+        <ul class="ml-5 list-disc space-y-1 text-sm text-slate-600">
+          {% for s in sub.get(-1) %}
+          <li>{{ s.subetapa }}</li>
+          {% endfor %}
+        </ul>
+      </section>
     </main>
   </body>
 </html>

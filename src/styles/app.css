@@ -1,0 +1,445 @@
+@import "@fontsource-variable/inter";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Base
+   ============================================================ */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-slate-50 font-sans text-slate-800;
+  }
+  a {
+    @apply text-brand-700 underline-offset-2 hover:text-brand-800 hover:underline;
+  }
+  abbr[title] {
+    @apply cursor-help no-underline;
+  }
+  code {
+    @apply rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] text-slate-700;
+  }
+  [type="checkbox"],
+  [type="radio"] {
+    @apply h-4 w-4 cursor-pointer border-slate-300 text-brand-600 focus:ring-brand-500;
+  }
+  [type="checkbox"] {
+    @apply rounded;
+  }
+  [type="text"],
+  [type="number"],
+  select {
+    @apply rounded-lg border-slate-300 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-brand-500;
+  }
+  [type="number"] {
+    @apply w-24;
+  }
+  select {
+    @apply pr-8;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-1;
+  }
+  svg.lucide {
+    @apply inline-block shrink-0;
+  }
+  /* Que ninguna clase de display (p.e. .btn) anule el atributo hidden */
+  [hidden] {
+    display: none !important;
+  }
+}
+
+/* ============================================================
+   Componentes
+   ============================================================ */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 no-underline shadow-sm transition hover:bg-slate-50 hover:text-slate-900 hover:no-underline active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
+  }
+  .btn-primary {
+    @apply border-brand-600 bg-brand-600 text-white hover:border-brand-700 hover:bg-brand-700 hover:text-white;
+  }
+  .btn-ghost {
+    @apply border-transparent bg-transparent shadow-none hover:bg-slate-100;
+  }
+  .btn-sm {
+    @apply px-2 py-1 text-xs;
+  }
+  .btn-icon {
+    @apply h-7 w-7 p-0;
+  }
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-card;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700;
+  }
+  .chip-brand { @apply bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200; }
+  .chip-green { @apply bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200; }
+  .chip-blue { @apply bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200; }
+  .chip-indigo { @apply bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200; }
+  .chip-amber { @apply bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200; }
+  .chip-red { @apply bg-red-50 text-red-700 ring-1 ring-inset ring-red-200; }
+  .chip-violet { @apply bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-200; }
+  .note {
+    @apply mt-2 flex gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs leading-snug text-amber-900 ring-1 ring-inset ring-amber-200;
+  }
+  .note a {
+    @apply text-amber-900 underline;
+  }
+  .muted {
+    @apply text-xs leading-snug text-slate-500;
+  }
+}
+
+/* ============================================================
+   Panel lateral (sidebar-v2)
+   ============================================================ */
+#sidebar.sidebar {
+  @apply border-0 bg-white shadow-float;
+}
+@media (min-width: 768px) {
+  #sidebar.sidebar {
+    @apply rounded-2xl;
+    top: 12px;
+    bottom: 12px;
+    left: 12px;
+  }
+}
+#sidebar.sidebar.collapsed {
+  width: 52px;
+}
+#sidebar .sidebar-tabs,
+#sidebar .sidebar-tabs > ul {
+  width: 52px;
+}
+#sidebar .sidebar-tabs {
+  @apply border-r border-slate-200 bg-white;
+}
+#sidebar .sidebar-tabs > ul {
+  @apply py-1.5;
+}
+#sidebar .sidebar-tabs > ul > li {
+  @apply mx-auto my-0.5 h-10 w-10 rounded-xl text-slate-500;
+}
+#sidebar .sidebar-tabs > ul > li:hover {
+  @apply bg-slate-100 text-slate-900;
+}
+#sidebar .sidebar-tabs > ul > li.active {
+  @apply bg-brand-50 text-brand-700;
+}
+#sidebar .sidebar-tabs > ul > li > a {
+  @apply flex flex-col items-center justify-center no-underline;
+  line-height: 1;
+}
+#sidebar .sidebar-tabs > ul > li > a svg {
+  @apply h-5 w-5;
+}
+#sidebar .sidebar-tabs > ul > li.tulista {
+  @apply h-12;
+}
+#count {
+  @apply mt-0.5 block text-[10px] font-semibold leading-none;
+}
+#sidebar .sidebar-content {
+  @apply bg-white;
+  left: 52px;
+}
+#sidebar .sidebar-pane {
+  @apply px-4 pb-6 pt-0 text-sm leading-relaxed;
+}
+/* sidebar-v2 fija un min-width pensado para pestañas de 40px; aquí miden 52px */
+@media (min-width: 768px) and (max-width: 991px) {
+  #sidebar .sidebar-pane { min-width: 253px; }
+}
+@media (min-width: 992px) and (max-width: 1199px) {
+  #sidebar .sidebar-pane { min-width: 338px; }
+}
+@media (min-width: 1200px) {
+  #sidebar .sidebar-pane { min-width: 408px; }
+}
+#tipos .opt-list {
+  @apply max-h-72 overflow-y-auto pr-1;
+}
+#sidebar .sidebar-header {
+  @apply sticky top-0 z-10 -mx-4 mb-3 flex h-14 items-center border-b border-slate-200 bg-white/95 px-4 text-base font-semibold text-slate-900 backdrop-blur;
+  margin-top: 0;
+  line-height: 1.25;
+}
+#sidebar .sidebar-close {
+  @apply right-2 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900;
+}
+.sidebar-left ~ .sidebar-map {
+  margin-left: 52px;
+}
+@media (min-width: 768px) {
+  .sidebar-left ~ .sidebar-map {
+    margin-left: 0;
+  }
+}
+
+/* Contenido de las pestañas */
+#sidebar .content > p {
+  @apply my-3;
+}
+#sidebar .content h2 {
+  @apply mb-2 mt-6 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500;
+}
+#sidebar .content h2 > small {
+  @apply chip normal-case tracking-normal;
+}
+#sidebar .content ul:not([class]),
+#sidebar .content ol:not([class]) {
+  @apply ml-5 list-disc space-y-1;
+}
+#sidebar .content ol:not([class]) {
+  @apply list-decimal;
+}
+#sidebar fieldset {
+  @apply card mt-3 p-3;
+}
+#sidebar legend {
+  @apply float-left mb-2 w-full p-0 text-xs font-semibold uppercase tracking-wide text-slate-500;
+}
+#sidebar legend + * {
+  clear: both;
+}
+#sidebar legend + br {
+  display: none;
+}
+#sidebar fieldset > p:last-child {
+  @apply mb-0;
+}
+#sidebar fieldset select {
+  @apply w-full;
+}
+
+/* Grupos de opciones (checkbox con su etiqueta) */
+.opt-list {
+  @apply space-y-1.5;
+}
+.opt {
+  @apply flex cursor-pointer items-start gap-2 text-sm leading-5;
+}
+.opt > input {
+  @apply mt-0.5 shrink-0;
+}
+.opt-grid {
+  @apply grid grid-cols-4 gap-1.5;
+}
+.opt-pill {
+  @apply flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium hover:bg-slate-50;
+}
+.opt-pill .swatch {
+  @apply inline-block h-2.5 w-2.5 rounded-full;
+}
+.field-inline {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+/* Botón de descarga deshabilitado */
+a[disabled="disabled"] {
+  @apply pointer-events-auto cursor-not-allowed opacity-50;
+}
+
+/* ============================================================
+   Listas de centros
+   ============================================================ */
+ul.listCentros {
+  @apply -mx-1 divide-y divide-slate-100;
+}
+ul.listCentros li {
+  @apply flex items-start gap-2 rounded-lg px-1 py-1.5 hover:bg-slate-50;
+}
+ul.listCentros li img {
+  @apply h-6 w-5 shrink-0 cursor-pointer;
+}
+ul.listCentros li > span {
+  @apply min-w-0 flex-1 text-[13px] leading-snug;
+}
+.ctr-code {
+  @apply font-mono text-[11px] text-slate-400;
+}
+small.viaje {
+  @apply chip chip-blue ml-1;
+}
+small.dist {
+  @apply chip ml-1;
+}
+
+/* Peticiones ordenadas */
+ol.listPeticiones {
+  @apply m-0 list-none space-y-2 p-0;
+}
+ol.listPeticiones li {
+  @apply flex cursor-grab items-start gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-card active:cursor-grabbing;
+}
+ol.listPeticiones li.pet_l {
+  @apply border-sky-200 bg-sky-50/50;
+}
+ol.listPeticiones li.pet_d {
+  @apply border-violet-200 bg-violet-50/50;
+}
+ol.listPeticiones li.aviso {
+  @apply border-l-4 border-l-amber-400;
+}
+ol.listPeticiones li.dragover {
+  @apply ring-2 ring-brand-500;
+}
+ol.listPeticiones li .pnum input.pos {
+  @apply w-12 px-1.5 py-1 text-center text-sm font-semibold;
+}
+ol.listPeticiones li .pbody {
+  @apply min-w-0 flex-1 text-[13px] leading-snug;
+}
+ol.listPeticiones li .pbody img.fly {
+  @apply mr-1 inline h-5 w-4 cursor-pointer align-text-bottom;
+}
+ol.listPeticiones li .puestos {
+  @apply mt-1.5 flex flex-wrap items-center gap-1 text-xs text-slate-500;
+}
+ol.listPeticiones li .puestos label {
+  @apply inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[11px] text-slate-700 has-[:checked]:border-brand-300 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-700;
+}
+ol.listPeticiones li .puestos input {
+  @apply h-3 w-3;
+}
+ol.listPeticiones li .pbtn {
+  @apply grid grid-cols-2 gap-1;
+}
+ol.listPeticiones li .pbtn button {
+  @apply btn btn-ghost btn-icon;
+}
+.avisotxt {
+  @apply mt-1 block text-xs text-amber-800;
+}
+
+/* ============================================================
+   Popups de Leaflet
+   ============================================================ */
+#map.leaflet-container {
+  @apply font-sans;
+}
+#map .leaflet-popup-content-wrapper {
+  @apply rounded-2xl p-0 shadow-float;
+}
+#map .leaflet-popup-content {
+  @apply m-0 w-[300px] text-[13px] leading-snug text-slate-700;
+}
+#map .leaflet-popup-content p {
+  @apply m-0;
+}
+#map.leaflet-container a.leaflet-popup-close-button {
+  @apply right-2 top-2 h-7 w-7 rounded-lg text-lg leading-7 text-slate-400 hover:bg-slate-100 hover:text-slate-700;
+}
+#map .leaflet-tooltip {
+  @apply rounded-lg border-0 bg-slate-900 px-2 py-1 text-xs text-white shadow-float;
+}
+#map .leaflet-tooltip::before {
+  display: none;
+}
+#map .leaflet-control-zoom.leaflet-bar {
+  @apply overflow-hidden rounded-xl border-0 shadow-float;
+}
+#map .leaflet-control-zoom a {
+  @apply text-slate-700 no-underline;
+}
+#map .leaflet-control-attribution {
+  @apply rounded-tl-lg bg-white/80 text-[10px];
+}
+
+.pop-head {
+  @apply border-b border-slate-100 px-4 pb-3 pr-10 pt-4;
+}
+.pop-head h3 {
+  @apply mt-1 text-[15px] font-semibold leading-tight text-slate-900;
+}
+.pop-head h3 a {
+  @apply text-slate-900;
+}
+.pop-sec {
+  @apply space-y-1.5 border-b border-slate-100 px-4 py-2.5;
+}
+.pop-sec:last-child {
+  @apply border-b-0;
+}
+.pop-row {
+  @apply flex items-start gap-2;
+}
+.pop-row > svg {
+  @apply mt-0.5 h-4 w-4 text-slate-400;
+}
+.pop-links {
+  @apply flex flex-wrap gap-1.5;
+}
+.chips {
+  @apply flex flex-wrap gap-1;
+}
+.seg {
+  @apply grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1;
+}
+.seg label {
+  @apply flex cursor-pointer items-center justify-center gap-1 whitespace-nowrap rounded-lg px-0.5 py-1.5 text-center text-xs font-medium text-slate-600 transition hover:text-slate-900;
+}
+.seg input {
+  @apply sr-only;
+}
+.seg label:has(input:checked) {
+  @apply bg-white text-slate-900 shadow-card;
+}
+.seg label.sel:has(input:checked) {
+  @apply text-brand-700;
+}
+
+/* ============================================================
+   Mapa: marcadores y capas
+   ============================================================ */
+.casa-icon {
+  @apply flex items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow-float;
+}
+.casa-icon svg {
+  @apply h-4 w-4;
+}
+
+/* Pantalla de carga */
+#loading-overlay {
+  @apply fixed inset-0 z-[3000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm;
+}
+.loading-message {
+  @apply card flex flex-col items-center gap-3 px-8 py-6 text-center text-slate-700;
+}
+.spinner {
+  @apply h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-brand-600;
+}
+
+/* Leyenda */
+ul.leyenda {
+  @apply space-y-2;
+}
+ul.leyenda li {
+  @apply flex items-center gap-3;
+}
+ul.leyenda li img {
+  @apply h-7 w-6 shrink-0;
+}
+
+/* Leaflet colorea todos sus enlaces; se restauran los colores propios */
+#map.leaflet-container a {
+  @apply text-brand-700;
+}
+#map .pop-head h3 a {
+  @apply text-slate-900 hover:text-brand-700;
+}
+#map .pop-row a {
+  @apply text-slate-700 hover:text-brand-700;
+}
+#map.leaflet-container a.btn {
+  @apply text-slate-700;
+}
+#map.leaflet-container a.btn-primary {
+  @apply text-white;
+}

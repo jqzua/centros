@@ -1,179 +1,132 @@
-<h1 class="sidebar-header">
-  Filtros<span class="sidebar-close"><i class="fa fa-caret-left"></i></span>
-</h1>
+{% import "macros.njk" as m %}
+{{ m.header("Filtros") }}
 <div class="content filter">
-  <p>
-    Los centros seleccionados siempre apareceran, independiemtemente del filtro
-    definido en esta sección.
-  </p>
+  <p class="muted">Los centros que hayas seleccionado aparecen siempre, sea cual sea el filtro.</p>
+
   <fieldset id="tipos" class="check_to_show">
     <legend>Tipo de centro</legend>
+    <div class="opt-list">
     {% for t in concurso.tipos %}
-    {% if loop.index>1 %}<br/>{%endif %}
-    <input id="t{{t.id}}" title="{{t.txt}}" type="checkbox" checked/>
-    <label for="t{{t.id}}">{{t.txt}}</label>
+      {{ m.check("t" + t.id, t.txt, true) }}
     {% endfor %}
+    </div>
   </fieldset>
+
+  {% if concurso.showEnsenanza %}
+  <fieldset>
+    <legend>ESO/Bachillerato y FP</legend>
+    <select id="ensenanza" data-label="ESO/Bachillerato y FP: ">
+      <option value="">Cualquiera</option>
+      <option value="sec">Con ESO y/o Bachillerato</option>
+      <option value="fp">Con FP</option>
+      <option value="ambas">Con ESO/Bachillerato y FP</option>
+      <option value="solo-sec">Solo ESO/Bachillerato (sin FP)</option>
+      <option value="solo-fp">Solo FP (sin ESO/Bachillerato)</option>
+      <option value="alguna">Con ESO/Bachillerato o FP</option>
+      <option value="ninguna">Sin ESO/Bachillerato ni FP</option>
+    </select>
+    <p class="muted mt-2">
+      {{ concurso.secundaria.length }} centros con ESO/Bachillerato y {{ concurso.fp.length }} con FP,
+      según las etapas y el alumnado del buscador de centros
+      (<a href="%VITE_GITHUB%/issues/7" target="_blank">issue #7</a>).
+    </p>
+  </fieldset>
+  {% endif %}
+
+  <fieldset id="flt_viaje">
+    <legend>Tiempo de viaje</legend>
+    <div class="field-inline">
+      <label for="viaje_max">A menos de</label>
+      <input id="viaje_max" type="number" min="0" step="5" title="Deja el campo vacío para no filtrar" data-label="Tiempo de viaje máximo (minutos): " />
+      <label for="viaje_max">minutos de tu punto de partida</label>
+    </div>
+    <p id="viaje_max_info" class="muted mt-2">
+      Primero calcula los tiempos en <a href="#viaje" target="_self">Tiempo de viaje</a>.
+      Con este filtro se ocultan los centros sin tiempo calculado.
+    </p>
+  </fieldset>
+
   <fieldset id="comunicacion">
-    <legend>Transporte</legend>
-    <label for="kms">Mostrar solo centros a menos de </label>
-    <input
-      id="kms"
-      min="{{distancia.min}}"
-      max="{{distancia.max}}"
-      step="{{distancia.step}}"
-      title="Deje vacio el campo para no filtrar"
-      type="number"
-    />
-    <label for="kms"
-      >metros de una estación de metro, metro ligero o cercanías</label
-    >
+    <legend>Transporte público</legend>
+    <div class="field-inline">
+      <label for="kms">A menos de</label>
+      <input id="kms" min="{{distancia.min}}" max="{{distancia.max}}" step="{{distancia.step}}" title="Deja el campo vacío para no filtrar" type="number" />
+      <label for="kms">metros de una estación de metro, metro ligero o cercanías</label>
+    </div>
   </fieldset>
+
+  {% if concurso.hasAlumnado %}
+  <fieldset>
+    <legend>Tamaño del centro</legend>
+    <div class="field-inline">
+      <label for="alu_min">Entre</label>
+      <input id="alu_min" type="number" min="0" step="50" title="Mínimo de alumnos (vacío para no filtrar)" data-label="Alumnos como mínimo: " />
+      <label for="alu_max">y</label>
+      <input id="alu_max" type="number" min="0" step="50" title="Máximo de alumnos (vacío para no filtrar)" data-label="Alumnos como máximo: " />
+      <label for="alu_max">alumnos</label>
+    </div>
+    <p class="muted mt-2">Alumnado total del último curso publicado. Con este filtro se ocultan los centros sin datos.</p>
+  </fieldset>
+  {% endif %}
+
   {% if concurso.jornadas.length > 1 %}
   <fieldset class="flt_property">
     <legend>Jornada</legend>
-    <select id="jornada" style="width: 100%;">
+    <select id="jornada" data-label="Jornada: ">
       <option value="">Cualquiera</option>
-      {% for j in jornadas %}
-      {% if concurso.jornadas.includes(j.id) %}
+      {% for j in jornadas %}{% if concurso.jornadas.includes(j.id) %}
       <option value="{{j.id}}">{{j.txt}}</option>
-      {% endif %}
-      {% endfor %}
+      {% endif %}{% endfor %}
     </select>
   </fieldset>
   {% endif %}
+
   <fieldset>
     <legend>Etapa educativa</legend>
-    <select id="etapa" style="width: 100%;" data-label="Etapa educativa: ">
+    <select id="etapa" data-label="Etapa educativa: ">
       <option value="">Cualquiera</option>
       {% for e in concurso.etapas %}
       <option value="{{e.id}}">{{e.txt}}</option>
       {% endfor %}
     </select>
-    <p style="margin-bottom: 0;">
-      <strong>⚠️ ¡OJO!</strong> Función experimental, puede inducir a error. Leer el <a href="%VITE_GITHUB%/issues/7" target="_blank">issue #7</a> antes de usar.
-    </p>
+    {{ m.note('Función experimental, puede inducir a error. Lee el <a href="%VITE_GITHUB%/issues/7" target="_blank">issue #7</a> antes de usarla.') }}
   </fieldset>
+
   <fieldset>
     <legend>Accesibilidad</legend>
-    <select id="accesibilidad" style="width: 100%;" data-label="Accesibilidad: ">
+    <select id="accesibilidad" data-label="Accesibilidad: ">
       <option value="">Cualquiera</option>
       <option value="TA">Totalmente accesible</option>
       <option value="PA,TA">Total o parcialmente accesible</option>
       <option value="NA">No accesible</option>
       <option value="NULL">Sin información</option>
     </select>
-    <p style="margin-bottom: 0;">
-      <strong>⚠️ ¡OJO!</strong> Función experimental, puede inducir a error. Leer la <a href="%VITE_GITHUB%/wiki/Accesibilidad" target="_blank">wiki</a> antes de usar.
-    </p>
+    {{ m.note('Función experimental, puede inducir a error. Lee la <a href="%VITE_GITHUB%/wiki/Accesibilidad" target="_blank">wiki</a> antes de usarla.') }}
   </fieldset>
-  {#
-  {% if concurso.showFP %}
-  <fieldset>
-    <legend>FP Dual</legend>
-    <select id="fpdual" style="width: 100%;">
-      <option value="">Cualquiera</option>
-      <option value="con">Con FP Dual</option>
-      <option value="sin">Sin FP Dual</option>
-    </select>
-  </fieldset>
-  {% endif %}
-  #}
+
   {% if concurso.isEspecial %}
   <fieldset id="otros" class="uncheck_to_hide">
-    <legend>Otras condiciones especiales</legend>
-    {% if concurso.nocturos.length>0 %}
-    <input
-      checked="checked"
-      id="nocturno"
-      title="Centros nocturnos"
-      type="checkbox"
-    />
-    <label for="nocturno">Centros nocturnos</label>
-    {% endif %}
-    {% if concurso.dificultad.length>0 %}
-    <br/>
-    <input
-      checked="checked"
-      id="dificultad"
-      title="Centro de especial dificultad"
-      type="checkbox"
-    />
-    <label for="dificultad">Centro de especial dificultad</label>
-    {% endif %}
-    {% if concurso.excelencia.length>0 %}
-    <br />
-    <input
-      checked="checked"
-      id="excelencia"
-      title="Centro o aula de excelencia"
-      type="checkbox"
-    />
-    <label for="excelencia">Centro o aula de excelencia</label>
-    {% endif %}
-    {% if concurso.innovacion.length>0 %}
-    <br />
-    <input
-      checked="checked"
-      id="innovacion"
-      title="Instituto de innovación tecnológica"
-      type="checkbox"
-    />
-    <label for="innovacion">Instituto de innovación tecnológica</label>
-    {% endif %}
-    {% if concurso.ingles.length>0 %}
-    <br />
-    <input
-      checked="checked"
-      name="idioma"
-      id="EN"
-      title="Bilingüe o sección de inglés"
-      type="checkbox"
-    />
-    <label for="EN">Bilingüe o sección de inglés</label>
-    {% endif %}
-    {% if concurso.aleman.length>0 %}
-    <br />
-    <input
-      checked="checked"
-      name="idioma"
-      id="DE"
-      title="Bilingüe o sección de alemán"
-      type="checkbox"
-    />
-    <label for="DE">Bilingüe o sección de alemán</label>
-    {% endif %}
-    {% if concurso.frances.length>0 %}
-    <br />
-    <input
-      checked="checked"
-      name="idioma"
-      id="FR"
-      title="Bilingüe o sección de francés"
-      type="checkbox"
-    />
-    <label for="FR">Bilingüe o sección de francés</label>
-    {% endif %}
+    <legend>Mostrar también centros…</legend>
+    <div class="opt-list">
+    {% if concurso.nocturos.length>0 %}{{ m.check("nocturno", "Centros nocturnos", true) }}{% endif %}
+    {% if concurso.dificultad.length>0 %}{{ m.check("dificultad", "Centro de especial dificultad", true) }}{% endif %}
+    {% if concurso.excelencia.length>0 %}{{ m.check("excelencia", "Centro o aula de excelencia", true) }}{% endif %}
+    {% if concurso.innovacion.length>0 %}{{ m.check("innovacion", "Instituto de innovación tecnológica", true) }}{% endif %}
+    {% if concurso.ingles.length>0 %}{{ m.check("EN", "Bilingüe o sección de inglés", true, 'name="idioma"') }}{% endif %}
+    {% if concurso.aleman.length>0 %}{{ m.check("DE", "Bilingüe o sección de alemán", true, 'name="idioma"') }}{% endif %}
+    {% if concurso.frances.length>0 %}{{ m.check("FR", "Bilingüe o sección de francés", true, 'name="idioma"') }}{% endif %}
+    </div>
   </fieldset>
   {% endif %}
+
   <fieldset>
-    <legend>Invertir filtro</legend>
-    <input id="invertir" title="Invertir filtro" type="checkbox" />
-    <label for="invertir"
-      >Mostrar centros ocultos y ocultar centros mostrados</label
-    >
+    <legend>Opciones</legend>
+    <div class="opt-list">
+      {{ m.check("invertir", "Invertir el filtro: mostrar los centros ocultos y ocultar los visibles") }}
+      {{ m.check("areas", "Colorear las áreas territoriales (DAT) en el mapa", false, 'class="nofiltro"') }}
+    </div>
   </fieldset>
-  <fieldset>
-    <legend>Colorear mapa</legend>
-    <input id="areas" class="nofiltro" title="Mostrar áreas territoriales (norte, sur, este, oeste y centro)" type="checkbox" />
-    <label for="areas"
-      >Mostrar áreas territoriales (norte, sur, este, oeste y centro)</label
-    >
-  </fieldset>
-  <p>
-    ¿Echas en falta algún filtro adicional?
-    <a href="%VITE_GITHUB%/issues/5" target="_blank">Pídemelo aquí</a>
-    y haré todo lo posible por añadirlo.
-  </p>
+
+  <p class="muted mt-4">¿Echas en falta algún filtro? <a href="%VITE_GITHUB%/issues/5" target="_blank">Pídelo aquí</a>.</p>
   {% include "tab/donar.njk" %}
 </div>

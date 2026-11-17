@@ -1,0 +1,5 @@
+{% macro header(titulo) %}<h1 class="sidebar-header">{{ titulo }}<span class="sidebar-close" title="Cerrar">{{ icon("cerrar") }}</span></h1>{% endmacro %}
+
+{% macro check(id, label, checked=false, extra="") %}<label class="opt" for="{{ id }}"><input id="{{ id }}" type="checkbox" title="{{ label }}"{% if checked %} checked{% endif %} {{ extra | safe }}/><span>{{ label }}</span></label>{% endmacro %}
+
+{% macro note(texto) %}<p class="note">{{ icon("aviso", "h-4 w-4 shrink-0") }}<span>{{ texto | safe }}</span></p>{% endmacro %}

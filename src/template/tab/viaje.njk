@@ -1,0 +1,50 @@
+{% import "macros.njk" as m %}
+{{ m.header("Tiempo de viaje") }}
+<div class="content filter">
+  <p class="muted">
+    Calcula el tiempo estimado desde tu casa (o cualquier punto) hasta cada
+    centro. Lo verás al pinchar en cada centro, en tus listas y peticiones, y
+    podrás usarlo en los Filtros.
+  </p>
+  <fieldset>
+    <legend>1 · Punto de partida</legend>
+    <form id="viaje_form" target="_self" onsubmit="return false;" class="flex gap-2">
+      <label for="viaje_q" class="sr-only">Dirección</label>
+      <input id="viaje_q" type="text" class="min-w-0 flex-1" placeholder="Calle, número y municipio" autocomplete="street-address" />
+      <button id="viaje_buscar" type="submit" class="btn btn-primary" title="Buscar">{{ icon("buscar") }}</button>
+    </form>
+    <div id="viaje_resultados" class="mt-2 text-sm"></div>
+    <div class="mt-2 flex flex-wrap gap-2">
+      <button id="viaje_mapa" type="button" class="btn btn-sm" title="Pincha después en el mapa">{{ icon("pin", "h-3.5 w-3.5") }} Elegir en el mapa</button>
+      <button id="viaje_gps" type="button" class="btn btn-sm">{{ icon("gps", "h-3.5 w-3.5") }} Mi ubicación</button>
+    </div>
+    <p id="viaje_origen" class="mt-3 rounded-lg bg-slate-50 p-2.5 text-sm"></p>
+  </fieldset>
+  <fieldset>
+    <legend>2 · Cómo vas</legend>
+    <select id="viaje_modo">
+      <option value="car">🚗 En coche (sin tráfico)</option>
+      <option value="bike">🚲 En bicicleta</option>
+      <option value="foot">🚶 A pie</option>
+    </select>
+  </fieldset>
+  <fieldset>
+    <legend>3 · Calcular</legend>
+    <div class="flex flex-wrap gap-2">
+      <button id="viaje_calcular" type="button" class="btn btn-primary">Calcular tiempos</button>
+      <button id="viaje_cancelar" type="button" class="btn" hidden>Cancelar</button>
+      <button id="viaje_borrar" type="button" class="btn btn-ghost ml-auto text-slate-500" title="Borrar el punto de partida y los tiempos guardados">{{ icon("borrar", "h-3.5 w-3.5") }} Borrar</button>
+    </div>
+    <progress id="viaje_progreso" max="1" value="0" hidden class="mt-3 h-2 w-full overflow-hidden rounded-full accent-brand-600"></progress>
+    <p id="viaje_estado" class="mt-2 text-sm text-slate-600"></p>
+  </fieldset>
+  <p class="muted mt-4">
+    El cálculo se hace en segundo plano: puedes seguir usando el mapa. Son
+    estimaciones de <a href="https://routing.openstreetmap.de/">OSRM</a> sobre
+    <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>: en coche
+    no tienen en cuenta el tráfico y no hay datos de transporte público. La
+    dirección se envía a <a href="https://nominatim.openstreetmap.org/">Nominatim</a>
+    para localizarla. Tu punto de partida y los tiempos <b>solo se guardan en este
+    navegador</b>: no se publican ni van en los enlaces que compartas.
+  </p>
+</div>
